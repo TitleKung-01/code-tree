@@ -44,13 +44,41 @@ setup-backend:
 
 # ==================== Database ====================
 
-db-migrate:
-	@echo "🗄️ Running migrations..."
+# Start local Supabase (run this first time)
+db-start:
+	@echo "🗄️ Starting local Supabase..."
+	cd supabase && supabase start
+
+# Apply migrations to local database (requires Supabase to be running)
+db-migrate: db-start
+	@echo "🗄️ Running migrations (local)..."
+	cd supabase && supabase db reset
+
+# Setup: Start Supabase and apply migrations
+db-setup: db-start
+	@echo "🗄️ Setting up database..."
+	cd supabase && supabase db reset
+
+# Push migrations to remote Supabase project (requires: supabase link)
+db-push:
+	@echo "🗄️ Pushing migrations to remote..."
 	cd supabase && supabase db push
 
-db-reset:
-	@echo "🗄️ Resetting database..."
+# Reset local database (applies all migrations)
+db-reset: db-start
+	@echo "🗄️ Resetting local database..."
 	cd supabase && supabase db reset
+
+# Generate TypeScript types from remote Supabase schema
+db-types:
+	@echo "📝 Generating TypeScript types..."
+	cd frontend && npx supabase gen types typescript --project-id fvjalyzkzmsnycxolkcx > src/types/database.ts
+	@echo "✅ Types generated at frontend/src/types/database.ts"
+
+# Link to remote Supabase project
+db-link:
+	@echo "🔗 Linking to remote Supabase project..."
+	cd supabase && supabase link
 
 # ==================== Clean ====================
 
