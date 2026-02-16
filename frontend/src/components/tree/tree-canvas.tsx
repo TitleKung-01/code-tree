@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -8,17 +8,25 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   BackgroundVariant,
+  ConnectionLineType,
   type Node,
   type NodeMouseHandler,
+  type OnConnect,
+  type Connection,
+  type OnNodeDrag,
   Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import TreeNodeComponent from "@/lib/tree/tree-node";
-import { type TreeNodeData, buildFlowElements, getGenerationColor } from "@/lib/tree/layout-engine";
+import {
+  TreeNodeData,
+  buildFlowElements,
+  getGenerationColor,
+} from "@/lib/tree/layout-engine";
 
-// ลงทะเบียน custom node types
 const nodeTypes = {
   treeNode: TreeNodeComponent,
 };
@@ -26,42 +34,105 @@ const nodeTypes = {
 interface TreeCanvasProps {
   treeNodes: TreeNodeData[];
   onNodeClick?: (node: TreeNodeData) => void;
+  onConnect?: (sourceId: string, targetId: string) => void;
+  onNodeDrop?: (draggedNodeId: string, targetNodeId: string) => void;
 }
 
 export default function TreeCanvas({
   treeNodes,
   onNodeClick,
+  onConnect: onConnectProp,
+  onNodeDrop,
 }: TreeCanvasProps) {
-  // คำนวณ layout
-  const { flowNodes: initialNodes, flowEdges: initialEdges } = useMemo(
+  const { fitView, getIntersectingNodes } = useReactFlow();
+  const prevNodeCountRef = useRef(treeNodes.length);
+
+  // Layout
+  const { flowNodes: layoutNodes, flowEdges: layoutEdges } = useMemo(
     () => buildFlowElements(treeNodes),
     [treeNodes]
   );
 
-  // React Flow state
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
 
-  // Handle node click
+  // Sync
+  useEffect(() => {
+    setNodes(layoutNodes);
+    setEdges(layoutEdges);
+
+    const nodeCountChanged = treeNodes.length !== prevNodeCountRef.current;
+    prevNodeCountRef.current = treeNodes.length;
+
+    if (nodeCountChanged && treeNodes.length > 0) {
+      setTimeout(() => {
+        fitView({ padding: 0.3, maxZoom: 1.2, duration: 500 });
+      }, 100);
+    }
+  }, [layoutNodes, layoutEdges, setNodes, setEdges, fitView, treeNodes.length]);
+
+  // Node click
   const handleNodeClick: NodeMouseHandler = useCallback(
     (_, node) => {
-      if (onNodeClick) {
-        onNodeClick(node.data as TreeNodeData);
-      }
+      onNodeClick?.(node.data as TreeNodeData);
     },
     [onNodeClick]
   );
 
-  // MiniMap node color ตาม generation
+  // Connect (ลากเส้น handle → handle)
+  const handleConnect: OnConnect = useCallback(
+    (connection: Connection) => {
+      if (connection.source && connection.target && onConnectProp) {
+        onConnectProp(connection.source, connection.target);
+      }
+    },
+    [onConnectProp]
+  );
+
+  // ★ Drag & Drop: ลาก node ไปวางบน node อื่น
+  const handleNodeDragStop: OnNodeDrag = useCallback(
+    (_event, draggedNode) => {
+      if (!onNodeDrop) return;
+
+      // หา node ที่ทับกัน
+      const intersecting = getIntersectingNodes(draggedNode);
+
+      if (intersecting.length > 0) {
+        // เอา node แรกที่ทับ (ไม่ใช่ตัวเอง)
+        const targetNode = intersecting.find((n) => n.id !== draggedNode.id);
+
+        if (targetNode) {
+          onNodeDrop(draggedNode.id, targetNode.id);
+        }
+      }
+
+      // Reset position กลับที่เดิม (layout engine จะจัด)
+      // เพราะถ้า confirm → refetch → re-layout
+      // ถ้า cancel → ต้องกลับที่เดิม
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (n.id === draggedNode.id) {
+            const original = layoutNodes.find((ln) => ln.id === n.id);
+            if (original) {
+              return { ...n, position: original.position };
+            }
+          }
+          return n;
+        })
+      );
+    },
+    [onNodeDrop, getIntersectingNodes, setNodes, layoutNodes]
+  );
+
+  // Minimap color
   const miniMapNodeColor = useCallback((node: Node) => {
     const data = node.data as TreeNodeData;
     return getGenerationColor(data?.generation || 1);
   }, []);
 
-  // Generation labels
+  // Generations
   const generations = useMemo(() => {
-    const gens = [...new Set(treeNodes.map((n) => n.generation))].sort();
-    return gens;
+    return [...new Set(treeNodes.map((n) => n.generation))].sort();
   }, [treeNodes]);
 
   return (
@@ -72,25 +143,23 @@ export default function TreeCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
+        onConnect={handleConnect}
+        onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{
-          padding: 0.3,
-          maxZoom: 1.2,
-        }}
+        fitViewOptions={{ padding: 0.3, maxZoom: 1.2 }}
         minZoom={0.1}
         maxZoom={2}
+        nodesDraggable={true}
         defaultEdgeOptions={{
           type: "smoothstep",
           animated: false,
-          style: {
-            stroke: "#94a3b8",
-            strokeWidth: 2,
-          },
+          style: { stroke: "#94a3b8", strokeWidth: 2 },
         }}
+        connectionLineStyle={{ stroke: "#3b82f6", strokeWidth: 2 }}
+        connectionLineType={ConnectionLineType.SmoothStep}
         proOptions={{ hideAttribution: true }}
       >
-        {/* พื้นหลัง dots */}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
@@ -98,23 +167,17 @@ export default function TreeCanvas({
           color="#e2e8f0"
         />
 
-        {/* ปุ่ม Zoom Controls */}
-        <Controls
-          position="bottom-left"
-          showInteractive={false}
-        />
+        <Controls position="bottom-left" showInteractive={false} />
 
-        {/* Minimap */}
         <MiniMap
           position="bottom-right"
           nodeColor={miniMapNodeColor}
           maskColor="rgba(0,0,0,0.1)"
-          className="!border-gray-200"
+          className="border-gray-200!"
           pannable
           zoomable
         />
 
-        {/* Empty State */}
         {treeNodes.length === 0 && (
           <Panel position="top-center" className="mt-20">
             <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
@@ -128,7 +191,6 @@ export default function TreeCanvas({
           </Panel>
         )}
 
-        {/* Generation Legend */}
         {generations.length > 0 && (
           <Panel position="top-right">
             <div className="rounded-lg border bg-white/90 p-3 shadow-sm backdrop-blur">
@@ -142,12 +204,18 @@ export default function TreeCanvas({
                       className="h-3 w-3 rounded-full"
                       style={{ backgroundColor: getGenerationColor(gen) }}
                     />
-                    <span className="text-xs text-gray-600">
-                      รุ่นที่ {gen}
-                    </span>
+                    <span className="text-xs text-gray-600">รุ่นที่ {gen}</span>
                   </div>
                 ))}
               </div>
+            </div>
+          </Panel>
+        )}
+
+        {treeNodes.length > 0 && treeNodes.length < 3 && (
+          <Panel position="bottom-center" className="mb-4">
+            <div className="rounded-full bg-blue-50 px-4 py-2 text-xs text-blue-600 shadow-sm">
+              💡 ลากโยก node ไปวางบน node อื่น หรือลากจากจุดเชื่อมต่อ เพื่อย้ายสาย
             </div>
           </Panel>
         )}

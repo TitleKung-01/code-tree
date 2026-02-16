@@ -10,7 +10,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { X, Pencil, Trash2, UserPlus } from "lucide-react";
+import { Pencil, Trash2, UserPlus, Navigation } from "lucide-react";
 import { TreeNodeData, getGenerationColor } from "@/lib/tree/layout-engine";
 import {
   getInitials,
@@ -28,7 +28,8 @@ interface NodeDetailPanelProps {
   onEdit?: (node: TreeNodeData) => void;
   onDelete?: (node: TreeNodeData) => void;
   onAddChild?: (parentNode: TreeNodeData) => void;
-  onNodeClick?: (node: TreeNodeData) => void;
+  onNodeSelect?: (node: TreeNodeData) => void;
+  onNavigateToNode?: (nodeId: string) => void;
 }
 
 export default function NodeDetailPanel({
@@ -39,7 +40,8 @@ export default function NodeDetailPanel({
   onEdit,
   onDelete,
   onAddChild,
-  onNodeClick,
+  onNodeSelect,
+  onNavigateToNode,
 }: NodeDetailPanelProps) {
   if (!node) return null;
 
@@ -48,13 +50,18 @@ export default function NodeDetailPanel({
   const children = findChildren(allNodes, node.id);
   const statusClasses = getStatusColor(node.status);
 
+  const handleNodeClick = (targetNode: TreeNodeData) => {
+    // เปลี่ยน selected node
+    onNodeSelect?.(targetNode);
+    // Pan ไปที่ node นั้น
+    onNavigateToNode?.(targetNode.id);
+  };
+
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <SheetContent className="w-[350px] overflow-y-auto sm:w-[400px]">
         <SheetHeader>
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg">ข้อมูลสมาชิก</SheetTitle>
-          </div>
+          <SheetTitle className="text-lg">ข้อมูลสมาชิก</SheetTitle>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -108,31 +115,9 @@ export default function NodeDetailPanel({
 
           {/* พี่รหัส */}
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-500">
-              พี่รหัส
-            </p>
+            <p className="mb-2 text-sm font-medium text-gray-500">พี่รหัส</p>
             {parent ? (
-              <button
-                onClick={() => onNodeClick?.(parent)}
-                className="flex w-full items-center gap-2 rounded-lg border p-2 text-left transition hover:bg-gray-50"
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback
-                    className="text-xs text-white"
-                    style={{
-                      backgroundColor: getGenerationColor(parent.generation),
-                    }}
-                  >
-                    {getInitials(parent.nickname)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium">{parent.nickname}</p>
-                  <p className="text-xs text-muted-foreground">
-                    รุ่นที่ {parent.generation}
-                  </p>
-                </div>
-              </button>
+              <NodeLink node={parent} onClick={() => handleNodeClick(parent)} />
             ) : (
               <p className="text-sm text-muted-foreground">
                 ไม่มี (root node)
@@ -148,30 +133,11 @@ export default function NodeDetailPanel({
             {children.length > 0 ? (
               <div className="space-y-1">
                 {children.map((child) => (
-                  <button
+                  <NodeLink
                     key={child.id}
-                    onClick={() => onNodeClick?.(child)}
-                    className="flex w-full items-center gap-2 rounded-lg border p-2 text-left transition hover:bg-gray-50"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback
-                        className="text-xs text-white"
-                        style={{
-                          backgroundColor: getGenerationColor(
-                            child.generation
-                          ),
-                        }}
-                      >
-                        {getInitials(child.nickname)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{child.nickname}</p>
-                      <p className="text-xs text-muted-foreground">
-                        รุ่นที่ {child.generation}
-                      </p>
-                    </div>
-                  </button>
+                    node={child}
+                    onClick={() => handleNodeClick(child)}
+                  />
                 ))}
               </div>
             ) : (
@@ -216,11 +182,46 @@ export default function NodeDetailPanel({
   );
 }
 
+// Sub components
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-gray-500">{label}</span>
       <span className="text-sm font-medium">{value}</span>
     </div>
+  );
+}
+
+function NodeLink({
+  node,
+  onClick,
+}: {
+  node: TreeNodeData;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-lg border p-2 text-left transition hover:bg-gray-50"
+    >
+      <Avatar className="h-8 w-8">
+        <AvatarFallback
+          className="text-xs text-white"
+          style={{
+            backgroundColor: getGenerationColor(node.generation),
+          }}
+        >
+          {getInitials(node.nickname)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1">
+        <p className="text-sm font-medium">{node.nickname}</p>
+        <p className="text-xs text-muted-foreground">
+          รุ่นที่ {node.generation}
+          {node.studentId && ` · ${node.studentId}`}
+        </p>
+      </div>
+      <Navigation className="h-3 w-3 text-gray-400" />
+    </button>
   );
 }
