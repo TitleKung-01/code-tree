@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build
+.next/
+out/
+dist/
+bin/
+tmp/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Generated code
+frontend/src/gen/
+backend/gen/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Supabase
+supabase/.temp/

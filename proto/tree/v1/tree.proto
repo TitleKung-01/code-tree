@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package tree.v1;
+
+option go_package = "github.com/yourusername/code-tree-backend/gen/tree/v1;treev1";
+
+// ==================== Messages ====================
+
+message Tree {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string faculty = 4;
+  string department = 5;
+  string created_by = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+// ==================== Requests & Responses ====================
+
+message CreateTreeRequest {
+  string name = 1;
+  string description = 2;
+  string faculty = 3;
+  string department = 4;
+}
+
+message CreateTreeResponse {
+  Tree tree = 1;
+}
+
+message GetTreeRequest {
+  string id = 1;
+}
+
+message GetTreeResponse {
+  Tree tree = 1;
+}
+
+message ListMyTreesRequest {}
+
+message ListMyTreesResponse {
+  repeated Tree trees = 1;
+}
+
+message DeleteTreeRequest {
+  string id = 1;
+}
+
+message DeleteTreeResponse {}
+
+// ==================== Service ====================
+
+service TreeService {
+  rpc CreateTree(CreateTreeRequest) returns (CreateTreeResponse);
+  rpc GetTree(GetTreeRequest) returns (GetTreeResponse);
+  rpc ListMyTrees(ListMyTreesRequest) returns (ListMyTreesResponse);
+  rpc DeleteTree(DeleteTreeRequest) returns (DeleteTreeResponse);
+}

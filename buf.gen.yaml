@@ -1,0 +1,22 @@
+# code-tree/buf.gen.yaml
+version: v2
+plugins:
+  # Generate Go code
+  - remote: buf.build/protocolbuffers/go
+    out: backend/gen
+    opt: paths=source_relative
+
+  # Generate Go Connect (gRPC) code
+  - remote: buf.build/connectrpc/go
+    out: backend/gen
+    opt: paths=source_relative
+
+  # Generate TypeScript code
+  - remote: buf.build/bufbuild/es
+    out: frontend/src/gen
+    opt: target=ts
+
+  # Generate TypeScript Connect code
+  - remote: buf.build/connectrpc/es
+    out: frontend/src/gen
+    opt: target=ts
