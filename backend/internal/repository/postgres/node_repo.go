@@ -325,6 +325,92 @@ func (r *NodeRepo) FindDescendantIDs(ctx context.Context, nodeID string) ([]stri
     return ids, nil
 }
 
+// ==================== EnsureNodeParentsTable ====================
+
+func (r *NodeRepo) EnsureNodeParentsTable(ctx context.Context) error {
+    query := `
+        CREATE TABLE IF NOT EXISTS node_parents (
+            node_id   UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            parent_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (node_id, parent_id),
+            CHECK (node_id != parent_id)
+        )
+    `
+    _, err := r.db.Pool.Exec(ctx, query)
+    if err != nil {
+        return fmt.Errorf("failed to ensure node_parents table: %w", err)
+    }
+    return nil
+}
+
+// ==================== AddParentID ====================
+
+func (r *NodeRepo) AddParentID(ctx context.Context, nodeID string, parentID string) error {
+    query := `
+        INSERT INTO node_parents (node_id, parent_id)
+        VALUES ($1, $2)
+        ON CONFLICT (node_id, parent_id) DO NOTHING
+    `
+    result, err := r.db.Pool.Exec(ctx, query, nodeID, parentID)
+    if err != nil {
+        return fmt.Errorf("failed to add parent: %w", err)
+    }
+    if result.RowsAffected() == 0 {
+        return node.ErrAlreadyParent
+    }
+    slog.Info("parent added", "nodeID", nodeID, "parentID", parentID)
+    return nil
+}
+
+// ==================== RemoveParentID ====================
+
+func (r *NodeRepo) RemoveParentID(ctx context.Context, nodeID string, parentID string) error {
+    result, err := r.db.Pool.Exec(ctx,
+        `DELETE FROM node_parents WHERE node_id = $1 AND parent_id = $2`,
+        nodeID, parentID,
+    )
+    if err != nil {
+        return fmt.Errorf("failed to remove parent: %w", err)
+    }
+    if result.RowsAffected() == 0 {
+        return node.ErrNotAParent
+    }
+    slog.Info("parent removed", "nodeID", nodeID, "parentID", parentID)
+    return nil
+}
+
+// ==================== FindParentIDsByNodeIDs ====================
+
+func (r *NodeRepo) FindParentIDsByNodeIDs(ctx context.Context, nodeIDs []string) (map[string][]string, error) {
+    if len(nodeIDs) == 0 {
+        return make(map[string][]string), nil
+    }
+
+    query := `
+        SELECT node_id, parent_id
+        FROM node_parents
+        WHERE node_id = ANY($1)
+        ORDER BY created_at ASC
+    `
+    rows, err := r.db.Pool.Query(ctx, query, nodeIDs)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find parent ids: %w", err)
+    }
+    defer rows.Close()
+
+    result := make(map[string][]string)
+    for rows.Next() {
+        var nID, pID string
+        if err := rows.Scan(&nID, &pID); err != nil {
+            return nil, fmt.Errorf("failed to scan parent id: %w", err)
+        }
+        result[nID] = append(result[nID], pID)
+    }
+
+    return result, nil
+}
+
 // ==================== GetMaxSiblingOrder ====================
 
 func (r *NodeRepo) GetMaxSiblingOrder(ctx context.Context, treeID string, parentID *string) (int, error) {

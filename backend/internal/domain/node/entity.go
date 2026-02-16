@@ -13,7 +13,8 @@ const (
 type Node struct {
     ID           string
     TreeID       string
-    ParentID     *string // nil = root node
+    ParentID     *string  // nil = root node (backward compat)
+    ParentIDs    []string // multi-parent support (from node_parents table)
     SiblingOrder int
     Nickname     string
     FirstName    string

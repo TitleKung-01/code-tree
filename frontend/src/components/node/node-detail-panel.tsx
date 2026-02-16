@@ -9,15 +9,32 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
-import { Pencil, Trash2, UserPlus, Navigation } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Pencil,
+  Trash2,
+  UserPlus,
+  ChevronRight,
+  GraduationCap,
+  Hash,
+  Users,
+  Crown,
+  UserCheck,
+  CircleDot,
+} from "lucide-react";
+import { motion } from "framer-motion";
 import { TreeNodeData, getGenerationColor } from "@/lib/tree/layout-engine";
 import {
   getInitials,
   getStatusLabel,
   getStatusColor,
   findChildren,
-  findParent,
+  findParents,
 } from "@/lib/tree/tree-utils";
 
 interface NodeDetailPanelProps {
@@ -30,6 +47,19 @@ interface NodeDetailPanelProps {
   onAddChild?: (parentNode: TreeNodeData) => void;
   onNodeSelect?: (node: TreeNodeData) => void;
   onNavigateToNode?: (nodeId: string) => void;
+}
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case "studying":
+      return <CircleDot className="h-3 w-3" />;
+    case "graduated":
+      return <GraduationCap className="h-3 w-3" />;
+    case "retired":
+      return <UserCheck className="h-3 w-3" />;
+    default:
+      return <CircleDot className="h-3 w-3" />;
+  }
 }
 
 export default function NodeDetailPanel({
@@ -46,28 +76,52 @@ export default function NodeDetailPanel({
   if (!node) return null;
 
   const genColor = getGenerationColor(node.generation);
-  const parent = findParent(allNodes, node);
+  const parents = findParents(allNodes, node);
   const children = findChildren(allNodes, node.id);
   const statusClasses = getStatusColor(node.status);
 
   const handleNodeClick = (targetNode: TreeNodeData) => {
-    // เปลี่ยน selected node
     onNodeSelect?.(targetNode);
-    // Pan ไปที่ node นั้น
     onNavigateToNode?.(targetNode.id);
   };
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent className="w-[350px] overflow-y-auto sm:w-[400px]">
-        <SheetHeader>
-          <SheetTitle className="text-lg">ข้อมูลสมาชิก</SheetTitle>
-        </SheetHeader>
+      <SheetContent className="flex w-[380px] flex-col gap-0 overflow-y-auto p-0 sm:w-[420px]">
+        {/* Hero Banner */}
+        <div
+          className="relative px-6 pb-14 pt-10"
+          style={{
+            background: `linear-gradient(135deg, ${genColor}18 0%, ${genColor}08 100%)`,
+          }}
+        >
+          <SheetHeader className="p-0">
+            <SheetTitle className="text-sm font-medium text-muted-foreground">
+              ข้อมูลสมาชิก
+            </SheetTitle>
+          </SheetHeader>
 
-        <div className="mt-6 space-y-6">
-          {/* Avatar + Name */}
-          <div className="flex flex-col items-center text-center">
-            <Avatar className="h-20 w-20">
+          {/* Generation accent line */}
+          <div
+            className="absolute inset-x-0 top-0 h-1"
+            style={{ backgroundColor: genColor }}
+          />
+        </div>
+
+        {/* Avatar — overlaps banner and content */}
+        <motion.div
+          className="relative z-10 -mt-12 flex justify-center"
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.15, type: "spring", stiffness: 200 }}
+        >
+          <div
+            className="rounded-full p-1"
+            style={{
+              background: `linear-gradient(135deg, ${genColor}, ${genColor}99)`,
+            }}
+          >
+            <Avatar className="h-20 w-20 border-4 border-background">
               {node.photoUrl && (
                 <AvatarImage src={node.photoUrl} alt={node.nickname} />
               )}
@@ -78,103 +132,170 @@ export default function NodeDetailPanel({
                 {getInitials(node.nickname, node.firstName)}
               </AvatarFallback>
             </Avatar>
+          </div>
+        </motion.div>
 
-            <h3 className="mt-3 text-xl font-bold">{node.nickname}</h3>
+        {/* Identity */}
+        <motion.div
+          className="flex flex-col items-center px-6 pt-3 text-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.25 }}
+        >
+          <h3 className="text-xl font-bold tracking-tight">
+            {node.nickname}
+          </h3>
 
-            {(node.firstName || node.lastName) && (
-              <p className="text-sm text-muted-foreground">
-                {node.firstName} {node.lastName}
-              </p>
-            )}
+          {(node.firstName || node.lastName) && (
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {node.firstName} {node.lastName}
+            </p>
+          )}
 
-            <div className="mt-2 flex gap-2">
-              <Badge
-                className="text-white"
-                style={{ backgroundColor: genColor }}
-              >
-                รุ่นที่ {node.generation}
-              </Badge>
-              <Badge className={statusClasses}>
-                {getStatusLabel(node.status)}
-              </Badge>
+          <div className="mt-3 flex items-center gap-2">
+            <Badge
+              className="gap-1 text-white"
+              style={{ backgroundColor: genColor }}
+            >
+              <Crown className="h-3 w-3" />
+              รุ่นที่ {node.generation}
+            </Badge>
+            <Badge className={`gap-1 ${statusClasses}`}>
+              {getStatusIcon(node.status)}
+              {getStatusLabel(node.status)}
+            </Badge>
+          </div>
+        </motion.div>
+
+        {/* Info Cards */}
+        <motion.div
+          className="mt-5 px-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.35 }}
+        >
+          <div className="rounded-xl border bg-muted/30 p-3">
+            <div className="grid grid-cols-2 gap-3">
+              {node.studentId && (
+                <InfoCard
+                  icon={<Hash className="h-3.5 w-3.5" />}
+                  label="รหัสนักศึกษา"
+                  value={node.studentId}
+                  fullWidth
+                />
+              )}
+              <InfoCard
+                icon={<GraduationCap className="h-3.5 w-3.5" />}
+                label="รุ่น"
+                value={`รุ่นที่ ${node.generation}`}
+              />
+              <InfoCard
+                icon={<Users className="h-3.5 w-3.5" />}
+                label="น้องรหัส"
+                value={`${children.length} คน`}
+              />
             </div>
           </div>
+        </motion.div>
 
-          <Separator />
+        {/* Relationships */}
+        <motion.div
+          className="mt-5 flex-1 space-y-5 px-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.45 }}
+        >
+          {/* Parents */}
+          <RelationSection
+            title="พี่รหัส"
+            count={parents.length}
+            emptyText="ไม่มีพี่รหัส (Root)"
+            emptyIcon={<Crown className="h-8 w-8 text-muted-foreground/40" />}
+          >
+            {parents.map((parent) => (
+              <NodeLink
+                key={parent.id}
+                node={parent}
+                onClick={() => handleNodeClick(parent)}
+              />
+            ))}
+          </RelationSection>
 
-          {/* Details */}
-          <div className="space-y-3">
-            {node.studentId && (
-              <DetailRow label="รหัสนักศึกษา" value={node.studentId} />
-            )}
-            <DetailRow label="รุ่นที่" value={`${node.generation}`} />
-            <DetailRow label="สถานะ" value={getStatusLabel(node.status)} />
-          </div>
+          {/* Children */}
+          <RelationSection
+            title="น้องรหัส"
+            count={children.length}
+            emptyText="ยังไม่มีน้องรหัส"
+            emptyIcon={<Users className="h-8 w-8 text-muted-foreground/40" />}
+            action={
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => onAddChild?.(node)}
+                      className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>เพิ่มน้องรหัส</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            }
+          >
+            {children.map((child) => (
+              <NodeLink
+                key={child.id}
+                node={child}
+                onClick={() => handleNodeClick(child)}
+              />
+            ))}
+          </RelationSection>
+        </motion.div>
 
-          <Separator />
-
-          {/* พี่รหัส */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-gray-500">พี่รหัส</p>
-            {parent ? (
-              <NodeLink node={parent} onClick={() => handleNodeClick(parent)} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                ไม่มี (root node)
-              </p>
-            )}
-          </div>
-
-          {/* น้องรหัส */}
-          <div>
-            <p className="mb-2 text-sm font-medium text-gray-500">
-              น้องรหัส ({children.length} คน)
-            </p>
-            {children.length > 0 ? (
-              <div className="space-y-1">
-                {children.map((child) => (
-                  <NodeLink
-                    key={child.id}
-                    node={child}
-                    onClick={() => handleNodeClick(child)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">ยังไม่มีน้อง</p>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Actions */}
-          <div className="space-y-2">
+        {/* Actions — sticky bottom */}
+        <div className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur-sm">
+          <div className="flex gap-2">
             <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
+              size="sm"
+              className="flex-1 gap-1.5 text-white"
+              style={{ backgroundColor: genColor }}
               onClick={() => onAddChild?.(node)}
             >
               <UserPlus className="h-4 w-4" />
-              เพิ่มน้องให้ {node.nickname}
+              เพิ่มน้อง
             </Button>
 
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={() => onEdit?.(node)}
-            >
-              <Pencil className="h-4 w-4" />
-              แก้ไขข้อมูล
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit?.(node)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>แก้ไขข้อมูล</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2 text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => onDelete?.(node)}
-            >
-              <Trash2 className="h-4 w-4" />
-              ลบ {node.nickname}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+                    onClick={() => onDelete?.(node)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>ลบ {node.nickname}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </SheetContent>
@@ -182,12 +303,65 @@ export default function NodeDetailPanel({
   );
 }
 
-// Sub components
-function DetailRow({ label, value }: { label: string; value: string }) {
+/* ─── Sub-components ─── */
+
+function InfoCard({
+  icon,
+  label,
+  value,
+  fullWidth,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  fullWidth?: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+    <div className={`space-y-1 ${fullWidth ? "col-span-2" : ""}`}>
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+        <span className="text-xs">{label}</span>
+      </div>
+      <p className="text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function RelationSection({
+  title,
+  count,
+  emptyText,
+  emptyIcon,
+  action,
+  children,
+}: {
+  title: string;
+  count: number;
+  emptyText: string;
+  emptyIcon: React.ReactNode;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-semibold">{title}</h4>
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+            {count}
+          </span>
+        </div>
+        {action}
+      </div>
+
+      {count > 0 ? (
+        <div className="space-y-1.5">{children}</div>
+      ) : (
+        <div className="flex flex-col items-center rounded-xl border border-dashed py-6 text-center">
+          {emptyIcon}
+          <p className="mt-2 text-sm text-muted-foreground">{emptyText}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -199,29 +373,55 @@ function NodeLink({
   node: TreeNodeData;
   onClick: () => void;
 }) {
+  const genColor = getGenerationColor(node.generation);
+  const statusClasses = getStatusColor(node.status);
+
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg border p-2 text-left transition hover:bg-gray-50"
+      className="group flex w-full items-center gap-3 rounded-xl border bg-background p-2.5 text-left transition-all hover:border-border/80 hover:bg-accent/50 hover:shadow-sm active:scale-[0.99]"
     >
-      <Avatar className="h-8 w-8">
+      <Avatar className="h-9 w-9 ring-2 ring-background">
+        {node.photoUrl && (
+          <AvatarImage src={node.photoUrl} alt={node.nickname} />
+        )}
         <AvatarFallback
-          className="text-xs text-white"
-          style={{
-            backgroundColor: getGenerationColor(node.generation),
-          }}
+          className="text-xs font-semibold text-white"
+          style={{ backgroundColor: genColor }}
         >
           {getInitials(node.nickname)}
         </AvatarFallback>
       </Avatar>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{node.nickname}</p>
-        <p className="text-xs text-muted-foreground">
-          รุ่นที่ {node.generation}
-          {node.studentId && ` · ${node.studentId}`}
-        </p>
+
+      <div className="flex-1 overflow-hidden">
+        <p className="truncate text-sm font-medium">{node.nickname}</p>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="text-xs font-medium"
+            style={{ color: genColor }}
+          >
+            รุ่น {node.generation}
+          </span>
+          {node.studentId && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {node.studentId}
+              </span>
+            </>
+          )}
+        </div>
       </div>
-      <Navigation className="h-3 w-3 text-gray-400" />
+
+      <div className="flex items-center gap-1.5">
+        <Badge
+          variant="secondary"
+          className={`h-5 gap-0.5 px-1.5 text-[10px] ${statusClasses}`}
+        >
+          {getStatusIcon(node.status)}
+        </Badge>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
+      </div>
     </button>
   );
 }

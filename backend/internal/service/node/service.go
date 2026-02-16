@@ -237,6 +237,26 @@ func (s *Service) GetTreeNodes(
         return nil, connect.NewError(connect.CodeInternal, err)
     }
 
+    // ดึง parent_ids จาก node_parents table (multi-parent)
+    nodeIDs := make([]string, len(nodes))
+    for i, n := range nodes {
+        nodeIDs[i] = n.ID
+    }
+    parentIDsMap, err := s.nodeRepo.FindParentIDsByNodeIDs(ctx, nodeIDs)
+    if err != nil {
+        slog.Warn("failed to load parent_ids from node_parents, using fallback", "error", err)
+        parentIDsMap = make(map[string][]string)
+    }
+
+    // เติม ParentIDs ลง domain nodes
+    for _, n := range nodes {
+        if pids, ok := parentIDsMap[n.ID]; ok && len(pids) > 0 {
+            n.ParentIDs = pids
+        } else if n.ParentID != nil {
+            n.ParentIDs = []string{*n.ParentID}
+        }
+    }
+
     // แปลง domain → proto
     protoNodes := make([]*nodev1.Node, len(nodes))
     for i, n := range nodes {
@@ -354,6 +374,7 @@ func domainToProto(n *node.Node) *nodev1.Node {
         PositionY:    n.PositionY,
         CreatedAt:    n.CreatedAt.Format("2006-01-02T15:04:05Z"),
         UpdatedAt:    n.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+        ParentIds:    n.ParentIDs,
     }
 
     if n.ParentID != nil {
@@ -383,6 +404,184 @@ func domainStatusToProto(s node.Status) nodev1.NodeStatus {
     default:
         return nodev1.NodeStatus_NODE_STATUS_STUDYING
     }
+}
+
+// ==================== AddParent (เพิ่มพี่ให้ node - multi-parent) ====================
+
+func (s *Service) AddParent(
+    ctx context.Context,
+    req *connect.Request[nodev1.AddParentRequest],
+) (*connect.Response[nodev1.AddParentResponse], error) {
+
+    userID, err := middleware.GetUserID(ctx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeUnauthenticated, err)
+    }
+
+    if req.Msg.NodeId == "" || req.Msg.ParentId == "" {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node_id and parent_id are required"))
+    }
+
+    // ห้ามเป็น parent ตัวเอง
+    if req.Msg.NodeId == req.Msg.ParentId {
+        return nil, connect.NewError(connect.CodeInvalidArgument, node.ErrSelfParent)
+    }
+
+    // หา node
+    n, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        if errors.Is(err, node.ErrNodeNotFound) {
+            return nil, connect.NewError(connect.CodeNotFound, err)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // หา parent
+    parentNode, err := s.nodeRepo.FindByID(ctx, req.Msg.ParentId)
+    if err != nil {
+        if errors.Is(err, node.ErrNodeNotFound) {
+            return nil, connect.NewError(connect.CodeNotFound, node.ErrParentNotFound)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ตรวจ ownership
+    t, err := s.treeRepo.FindByID(ctx, n.TreeID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    if t.CreatedBy != userID {
+        return nil, connect.NewError(connect.CodePermissionDenied, tree.ErrUnauthorized)
+    }
+
+    // ห้ามข้าม tree
+    if n.TreeID != parentNode.TreeID {
+        return nil, connect.NewError(connect.CodeInvalidArgument, node.ErrCrossTreeMove)
+    }
+
+    // ห้าม circular reference
+    descendantIDs, err := s.nodeRepo.FindDescendantIDs(ctx, req.Msg.NodeId)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    for _, dID := range descendantIDs {
+        if dID == req.Msg.ParentId {
+            return nil, connect.NewError(connect.CodeInvalidArgument, node.ErrCircularReference)
+        }
+    }
+
+    // เพิ่ม parent ลง node_parents table
+    if err := s.nodeRepo.AddParentID(ctx, req.Msg.NodeId, req.Msg.ParentId); err != nil {
+        if errors.Is(err, node.ErrAlreadyParent) {
+            return nil, connect.NewError(connect.CodeAlreadyExists, err)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ถ้า node ยังไม่มี primary parent → ตั้งค่า parent_id ใน nodes table ด้วย
+    if n.ParentID == nil {
+        newGen := node.CalculateGeneration(parentNode)
+        pid := req.Msg.ParentId
+        if err := s.nodeRepo.UpdateParent(ctx, req.Msg.NodeId, &pid, newGen); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+    }
+
+    // ดึง node ที่อัปเดตแล้ว
+    updated, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // เติม parent_ids
+    pidsMap, _ := s.nodeRepo.FindParentIDsByNodeIDs(ctx, []string{updated.ID})
+    if pids, ok := pidsMap[updated.ID]; ok {
+        updated.ParentIDs = pids
+    }
+
+    return connect.NewResponse(&nodev1.AddParentResponse{
+        Node: domainToProto(updated),
+    }), nil
+}
+
+// ==================== RemoveParent (ตัดสายจาก parent เฉพาะตัว) ====================
+
+func (s *Service) RemoveParent(
+    ctx context.Context,
+    req *connect.Request[nodev1.RemoveParentRequest],
+) (*connect.Response[nodev1.RemoveParentResponse], error) {
+
+    userID, err := middleware.GetUserID(ctx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeUnauthenticated, err)
+    }
+
+    if req.Msg.NodeId == "" || req.Msg.ParentId == "" {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node_id and parent_id are required"))
+    }
+
+    // หา node
+    n, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        if errors.Is(err, node.ErrNodeNotFound) {
+            return nil, connect.NewError(connect.CodeNotFound, err)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ตรวจ ownership
+    t, err := s.treeRepo.FindByID(ctx, n.TreeID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    if t.CreatedBy != userID {
+        return nil, connect.NewError(connect.CodePermissionDenied, tree.ErrUnauthorized)
+    }
+
+    // ลบ parent จาก node_parents table
+    if err := s.nodeRepo.RemoveParentID(ctx, req.Msg.NodeId, req.Msg.ParentId); err != nil {
+        if errors.Is(err, node.ErrNotAParent) {
+            return nil, connect.NewError(connect.CodeNotFound, err)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ดึง parent_ids ที่เหลือ
+    pidsMap, err := s.nodeRepo.FindParentIDsByNodeIDs(ctx, []string{req.Msg.NodeId})
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    remainingPIDs := pidsMap[req.Msg.NodeId]
+
+    // อัปเดต primary parent_id ใน nodes table
+    if len(remainingPIDs) == 0 {
+        // ไม่เหลือ parent → เป็น root
+        if err := s.nodeRepo.UpdateParent(ctx, req.Msg.NodeId, nil, 1); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+    } else if n.ParentID != nil && *n.ParentID == req.Msg.ParentId {
+        // ถ้า primary parent ถูกลบ → ใช้ parent ตัวถัดไปแทน
+        firstRemaining := remainingPIDs[0]
+        remainingParent, err := s.nodeRepo.FindByID(ctx, firstRemaining)
+        if err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+        newGen := node.CalculateGeneration(remainingParent)
+        if err := s.nodeRepo.UpdateParent(ctx, req.Msg.NodeId, &firstRemaining, newGen); err != nil {
+            return nil, connect.NewError(connect.CodeInternal, err)
+        }
+    }
+
+    // ดึง node ที่อัปเดตแล้ว
+    updated, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    updated.ParentIDs = remainingPIDs
+
+    return connect.NewResponse(&nodev1.RemoveParentResponse{
+        Node: domainToProto(updated),
+    }), nil
 }
 
 // ==================== UnlinkNode ====================

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback } from "react";
+import { memo, useCallback } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,10 @@ import {
   Trash2,
   Unlink,
   Copy,
-  Navigation,
+  Eye,
+  CircleDot,
+  GraduationCap,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +40,32 @@ type TreeNodeComponentProps = NodeProps & {
     onFocus?: (node: TreeNodeData) => void;
   };
 };
+
+function getStatusDot(status: string) {
+  switch (status) {
+    case "studying":
+      return "bg-emerald-500";
+    case "graduated":
+      return "bg-blue-500";
+    case "retired":
+      return "bg-gray-400";
+    default:
+      return "bg-gray-400";
+  }
+}
+
+function getStatusIconSmall(status: string) {
+  switch (status) {
+    case "studying":
+      return <CircleDot className="h-3 w-3" />;
+    case "graduated":
+      return <GraduationCap className="h-3 w-3" />;
+    case "retired":
+      return <UserCheck className="h-3 w-3" />;
+    default:
+      return <CircleDot className="h-3 w-3" />;
+  }
+}
 
 function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps) {
   const genColor = getGenerationColor(data.generation);
@@ -52,66 +81,78 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
   const nodeCard = (
     <div
       className={`
-        w-[200px] rounded-xl border-2 bg-white p-3 shadow-md
+        relative w-[210px] overflow-hidden rounded-xl border bg-background shadow-md
         transition-all duration-200
         ${dragging
-          ? "scale-105 opacity-80 shadow-xl ring-2 ring-blue-300"
-          : "hover:shadow-lg hover:scale-[1.02]"
+          ? "scale-105 opacity-80 shadow-xl ring-2 ring-blue-400/50"
+          : "hover:shadow-lg"
         }
         ${selected
-          ? "border-blue-500 shadow-blue-100 ring-2 ring-blue-200"
-          : "border-gray-200"
+          ? "ring-2 ring-blue-500/50 shadow-blue-500/10"
+          : ""
         }
       `}
-      style={{
-        borderTopColor: dragging ? "#3b82f6" : genColor,
-        borderTopWidth: "3px",
-      }}
     >
-      <div className="flex items-center gap-2">
-        <div className="flex shrink-0 cursor-grab items-center text-gray-300 active:cursor-grabbing">
-          <GripVertical className="h-4 w-4" />
+      {/* Generation accent */}
+      <div
+        className="h-1 w-full"
+        style={{ backgroundColor: genColor }}
+      />
+
+      <div className="p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 cursor-grab items-center text-muted-foreground/30 active:cursor-grabbing">
+            <GripVertical className="h-3.5 w-3.5" />
+          </div>
+
+          {/* Avatar with status indicator */}
+          <div className="relative shrink-0">
+            <Avatar className="h-10 w-10 ring-2 ring-background">
+              {data.photoUrl && (
+                <AvatarImage src={data.photoUrl} alt={data.nickname} />
+              )}
+              <AvatarFallback
+                className="text-sm font-bold text-white"
+                style={{ backgroundColor: genColor }}
+              >
+                {getInitials(data.nickname, data.firstName)}
+              </AvatarFallback>
+            </Avatar>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusDot(data.status)}`}
+            />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">
+              {data.nickname}
+            </p>
+            {(data.firstName || data.lastName) && (
+              <p className="truncate text-[11px] text-muted-foreground">
+                {data.firstName} {data.lastName}
+              </p>
+            )}
+          </div>
         </div>
 
-        <Avatar className="h-10 w-10 shrink-0">
-          {data.photoUrl && (
-            <AvatarImage src={data.photoUrl} alt={data.nickname} />
+        {/* Badges row */}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {data.studentId && (
+            <Badge variant="outline" className="h-5 text-[10px] font-mono">
+              {data.studentId}
+            </Badge>
           )}
-          <AvatarFallback
-            className="text-sm font-bold text-white"
+          <Badge
+            className="h-5 text-[10px] text-white"
             style={{ backgroundColor: genColor }}
           >
-            {getInitials(data.nickname, data.firstName)}
-          </AvatarFallback>
-        </Avatar>
-
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-gray-900">
-            {data.nickname}
-          </p>
-          {(data.firstName || data.lastName) && (
-            <p className="truncate text-xs text-gray-500">
-              {data.firstName} {data.lastName}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        {data.studentId && (
-          <Badge variant="outline" className="text-[10px] font-mono">
-            {data.studentId}
+            รุ่น {data.generation}
           </Badge>
-        )}
-        <Badge
-          className="text-[10px] text-white"
-          style={{ backgroundColor: genColor }}
-        >
-          รุ่น {data.generation}
-        </Badge>
-        <Badge variant="secondary" className={`text-[10px] ${statusClasses}`}>
-          {getStatusLabel(data.status)}
-        </Badge>
+          <Badge variant="secondary" className={`h-5 gap-0.5 text-[10px] ${statusClasses}`}>
+            {getStatusIconSmall(data.status)}
+            {getStatusLabel(data.status)}
+          </Badge>
+        </div>
       </div>
     </div>
   );
@@ -121,24 +162,35 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
       <Handle
         type="target"
         position={Position.Top}
-        className="!h-3 !w-3 !border-2 !border-white !bg-gray-400 hover:!bg-blue-500"
+        className="h-2.5! w-2.5! rounded-full! border-2! border-background! bg-muted-foreground/40! hover:bg-blue-500!"
       />
 
       <ContextMenu>
         <ContextMenuTrigger asChild>{nodeCard}</ContextMenuTrigger>
         <ContextMenuContent className="w-52">
-          <div className="px-2 py-1.5">
-            <p className="text-sm font-medium">{data.nickname}</p>
-            <p className="text-xs text-muted-foreground">
-              รุ่นที่ {data.generation}
-              {data.studentId && ` · ${data.studentId}`}
-            </p>
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-2 py-2">
+            <Avatar className="h-7 w-7">
+              <AvatarFallback
+                className="text-xs font-semibold text-white"
+                style={{ backgroundColor: genColor }}
+              >
+                {getInitials(data.nickname)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm font-semibold">{data.nickname}</p>
+              <p className="text-[11px] text-muted-foreground">
+                รุ่นที่ {data.generation}
+                {data.studentId && ` · ${data.studentId}`}
+              </p>
+            </div>
           </div>
 
           <ContextMenuSeparator />
 
           <ContextMenuItem onClick={() => data.onFocus?.(data)}>
-            <Navigation className="mr-2 h-4 w-4" />
+            <Eye className="mr-2 h-4 w-4" />
             ดูข้อมูล
           </ContextMenuItem>
 
@@ -154,7 +206,7 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
 
           <ContextMenuSeparator />
 
-          {data.parentId && (
+          {data.parentIds.length > 0 && (
             <ContextMenuItem onClick={() => data.onUnlink?.(data)}>
               <Unlink className="mr-2 h-4 w-4" />
               ตัดสาย (เป็น root)
@@ -173,7 +225,7 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
             className="text-red-600 focus:text-red-600"
           >
             <Trash2 className="mr-2 h-4 w-4" />
-            ลบ
+            ลบ {data.nickname}
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
@@ -181,7 +233,7 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!h-3 !w-3 !border-2 !border-white !bg-gray-400 hover:!bg-blue-500"
+        className="h-2.5! w-2.5! rounded-full! border-2! border-background! bg-muted-foreground/40! hover:bg-blue-500!"
       />
     </>
   );

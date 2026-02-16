@@ -16,7 +16,7 @@ enum NodeStatus {
 message Node {
   string id = 1;
   string tree_id = 2;
-  optional string parent_id = 3;  // null = root node
+  optional string parent_id = 3;  // [deprecated] ใช้ parent_ids แทน - เก็บไว้เพื่อ backward compat
   string nickname = 4;
   string first_name = 5;
   string last_name = 6;
@@ -29,6 +29,7 @@ message Node {
   double position_y = 13;
   string created_at = 14;
   string updated_at = 15;
+  repeated string parent_ids = 16;  // รองรับ multi-parent (DAG)
 }
 
 // ==================== Requests & Responses ====================
@@ -87,10 +88,30 @@ message GetTreeNodesResponse {
 }
 
 message UnlinkNodeRequest {
-  string node_id = 1;  // node ที่จะตัดสาย (set parent = null)
+  string node_id = 1;  // node ที่จะตัดสาย (set parent = null / ลบ parent ทั้งหมด)
 }
 
 message UnlinkNodeResponse {
+  Node node = 1;
+}
+
+// ★ NEW: เพิ่มพี่ให้ node (รองรับ multi-parent)
+message AddParentRequest {
+  string node_id = 1;     // node ที่จะเพิ่มพี่
+  string parent_id = 2;   // parent ที่จะเพิ่ม
+}
+
+message AddParentResponse {
+  Node node = 1;
+}
+
+// ★ NEW: ตัดสายจาก parent เฉพาะตัว
+message RemoveParentRequest {
+  string node_id = 1;     // node ที่จะตัดสาย
+  string parent_id = 2;   // parent ที่จะตัดออก
+}
+
+message RemoveParentResponse {
   Node node = 1;
 }
 
@@ -101,6 +122,9 @@ service NodeService {
   rpc UpdateNode(UpdateNodeRequest) returns (UpdateNodeResponse);
   rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
   rpc MoveNode(MoveNodeRequest) returns (MoveNodeResponse);
-  rpc UnlinkNode(UnlinkNodeRequest) returns (UnlinkNodeResponse);  // NEW
+  rpc UnlinkNode(UnlinkNodeRequest) returns (UnlinkNodeResponse);
   rpc GetTreeNodes(GetTreeNodesRequest) returns (GetTreeNodesResponse);
+  // ★ NEW: multi-parent support
+  rpc AddParent(AddParentRequest) returns (AddParentResponse);
+  rpc RemoveParent(RemoveParentRequest) returns (RemoveParentResponse);
 }

@@ -11,6 +11,7 @@ import {
   useReactFlow,
   BackgroundVariant,
   type Node,
+  type Edge,
   type NodeMouseHandler,
   type OnConnect,
   type Connection,
@@ -20,22 +21,26 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import TreeNodeComponent from "./tree-node";  
+import { TreePine } from "lucide-react";
+import TreeNodeComponent from "./tree-node";
+import TreeEdgeComponent from "./tree-edge";
 import {
   TreeNodeData,
   buildFlowElements,
   getGenerationColor,
+  type LayoutDirection,
 } from "@/lib/tree/layout-engine";
 
-const nodeTypes = {
-  treeNode: TreeNodeComponent,
-};
+const nodeTypes = { treeNode: TreeNodeComponent };
+const edgeTypes = { customEdge: TreeEdgeComponent };
 
 interface TreeCanvasProps {
   treeNodes: TreeNodeData[];
+  direction?: LayoutDirection;
   onNodeClick?: (node: TreeNodeData) => void;
   onConnect?: (sourceId: string, targetId: string) => void;
   onNodeDrop?: (draggedNodeId: string, targetNodeId: string) => void;
+  onEdgeClick?: (sourceId: string, targetId: string) => void;
   onAddChild?: (node: TreeNodeData) => void;
   onEdit?: (node: TreeNodeData) => void;
   onDelete?: (node: TreeNodeData) => void;
@@ -44,9 +49,11 @@ interface TreeCanvasProps {
 
 export default function TreeCanvas({
   treeNodes,
+  direction = "TB",
   onNodeClick,
   onConnect: onConnectProp,
   onNodeDrop,
+  onEdgeClick,
   onAddChild,
   onEdit,
   onDelete,
@@ -56,23 +63,15 @@ export default function TreeCanvas({
   const prevNodeCountRef = useRef(treeNodes.length);
 
   const { flowNodes: layoutNodes, flowEdges: layoutEdges } = useMemo(
-    () => buildFlowElements(treeNodes),
-    [treeNodes]
+    () => buildFlowElements(treeNodes, direction),
+    [treeNodes, direction]
   );
 
-  // ★ Inject callbacks เข้าไปใน node data สำหรับ context menu
   const nodesWithCallbacks = useMemo(
     () =>
       layoutNodes.map((n) => ({
         ...n,
-        data: {
-          ...n.data,
-          onAddChild,
-          onEdit,
-          onDelete,
-          onUnlink,
-          onFocus: onNodeClick,
-        },
+        data: { ...n.data, onAddChild, onEdit, onDelete, onUnlink, onFocus: onNodeClick },
       })),
     [layoutNodes, onAddChild, onEdit, onDelete, onUnlink, onNodeClick]
   );
@@ -95,9 +94,7 @@ export default function TreeCanvas({
   }, [nodesWithCallbacks, layoutEdges, setNodes, setEdges, fitView, treeNodes.length]);
 
   const handleNodeClick: NodeMouseHandler = useCallback(
-    (_, node) => {
-      onNodeClick?.(node.data as TreeNodeData);
-    },
+    (_, node) => onNodeClick?.(node.data as unknown as TreeNodeData),
     [onNodeClick]
   );
 
@@ -117,18 +114,14 @@ export default function TreeCanvas({
       const intersecting = getIntersectingNodes(draggedNode);
       if (intersecting.length > 0) {
         const targetNode = intersecting.find((n) => n.id !== draggedNode.id);
-        if (targetNode) {
-          onNodeDrop(draggedNode.id, targetNode.id);
-        }
+        if (targetNode) onNodeDrop(draggedNode.id, targetNode.id);
       }
 
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id === draggedNode.id) {
             const original = nodesWithCallbacks.find((ln) => ln.id === n.id);
-            if (original) {
-              return { ...n, position: original.position };
-            }
+            if (original) return { ...n, position: original.position };
           }
           return n;
         })
@@ -137,8 +130,18 @@ export default function TreeCanvas({
     [onNodeDrop, getIntersectingNodes, setNodes, nodesWithCallbacks]
   );
 
+  // ★ Edge click → ตัดสาย
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      if (onEdgeClick) {
+        onEdgeClick(edge.source, edge.target);
+      }
+    },
+    [onEdgeClick]
+  );
+
   const miniMapNodeColor = useCallback((node: Node) => {
-    const data = node.data as TreeNodeData;
+    const data = node.data as unknown as TreeNodeData;
     return getGenerationColor(data?.generation || 1);
   }, []);
 
@@ -156,16 +159,17 @@ export default function TreeCanvas({
         onNodeClick={handleNodeClick}
         onConnect={handleConnect}
         onNodeDragStop={handleNodeDragStop}
+        onEdgeClick={handleEdgeClick}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.3, maxZoom: 1.2 }}
         minZoom={0.1}
         maxZoom={2}
         nodesDraggable={true}
         defaultEdgeOptions={{
-          type: "smoothstep",
+          type: "customEdge",
           animated: false,
-          style: { stroke: "#94a3b8", strokeWidth: 2 },
         }}
         connectionLineStyle={{ stroke: "#3b82f6", strokeWidth: 2 }}
         connectionLineType={ConnectionLineType.SmoothStep}
@@ -177,22 +181,36 @@ export default function TreeCanvas({
 
         {treeNodes.length === 0 && (
           <Panel position="top-center" className="mt-20">
-            <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-              <p className="text-lg font-medium text-gray-500">🌳 ยังไม่มีคนในสายรหัส</p>
-              <p className="mt-1 text-sm text-gray-400">กดปุ่ม &quot;+ เพิ่มคน&quot; เพื่อเริ่มสร้างสายรหัส</p>
+            <div className="flex flex-col items-center rounded-2xl border-2 border-dashed border-muted-foreground/20 bg-background/80 px-10 py-10 text-center backdrop-blur-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-50 dark:bg-green-950/30">
+                <TreePine className="h-8 w-8 text-green-300" />
+              </div>
+              <p className="mt-4 text-base font-semibold text-foreground">
+                ยังไม่มีคนในสายรหัส
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                กดปุ่ม &quot;+ เพิ่มคน&quot; ด้านบนเพื่อเริ่มสร้าง
+              </p>
             </div>
           </Panel>
         )}
 
         {generations.length > 0 && (
           <Panel position="top-right">
-            <div className="rounded-lg border bg-white/90 p-3 shadow-sm backdrop-blur">
-              <p className="mb-2 text-xs font-medium text-gray-500">สัญลักษณ์รุ่น</p>
+            <div className="rounded-xl border bg-background/90 p-2.5 shadow-sm backdrop-blur-sm">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                สัญลักษณ์รุ่น
+              </p>
               <div className="space-y-1">
                 {generations.map((gen) => (
                   <div key={gen} className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: getGenerationColor(gen) }} />
-                    <span className="text-xs text-gray-600">รุ่นที่ {gen}</span>
+                    <div
+                      className="h-2.5 w-2.5 rounded-full shadow-sm"
+                      style={{ backgroundColor: getGenerationColor(gen) }}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      รุ่น {gen}
+                    </span>
                   </div>
                 ))}
               </div>

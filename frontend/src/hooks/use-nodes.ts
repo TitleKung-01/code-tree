@@ -6,11 +6,19 @@ import { TreeNodeData } from "@/lib/tree/layout-engine";
 import { toast } from "sonner";
 import { Node } from "@/gen/node/v1/node_pb";
 
-// แปลง proto node → TreeNodeData
+// แปลง proto node → TreeNodeData (รองรับ multi-parent)
 function protoToTreeNode(n: Node): TreeNodeData {
+  // ใช้ parent_ids (field 16) เป็นหลัก, fallback เป็น parent_id (field 3) สำหรับ backward compat
+  const parentIds =
+    n.parentIds.length > 0
+      ? n.parentIds
+      : n.parentId
+        ? [n.parentId]
+        : [];
+
   return {
     id: n.id,
-    parentId: n.parentId || null,
+    parentIds,
     nickname: n.nickname,
     firstName: n.firstName || "",
     lastName: n.lastName || "",
@@ -78,7 +86,7 @@ export function useTreeNodes(treeId: string) {
     fetchNodes();
   }, [fetchNodes]);
 
-  return { nodes, loading, error, refetch: fetchNodes };
+  return { nodes, setNodes, loading, error, refetch: fetchNodes };
 }
 
 // ==================== Create Node ====================
@@ -101,7 +109,7 @@ export function useCreateNode() {
 
       const response = await nodeClient.createNode({
         treeId: data.treeId,
-        parentId: data.parentId || undefined,
+        parentId: data.parentId ?? undefined,
         nickname: data.nickname,
         firstName: data.firstName || "",
         lastName: data.lastName || "",
@@ -253,9 +261,67 @@ export function useUnlinkNode() {
         return false;
       } finally {
         setLoading(false);
-        return false;
       }
     };
 
     return { unlinkNode, loading };
   }
+
+// ==================== Add Parent (เพิ่มพี่ให้ node) ====================
+
+export function useAddParent() {
+  const [loading, setLoading] = useState(false);
+
+  const addParent = async (
+    nodeId: string,
+    parentId: string
+  ): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      await nodeClient.addParent({ nodeId, parentId });
+
+      toast.success("เพิ่มสายสำเร็จ!");
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "เพิ่มสายไม่สำเร็จ";
+      toast.error(message);
+      console.error("Failed to add parent:", err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { addParent, loading };
+}
+
+// ==================== Remove Parent (ตัดสายจาก parent เฉพาะตัว) ====================
+
+export function useRemoveParent() {
+  const [loading, setLoading] = useState(false);
+
+  const removeParent = async (
+    nodeId: string,
+    parentId: string,
+    nickname: string
+  ): Promise<boolean> => {
+    try {
+      setLoading(true);
+
+      await nodeClient.removeParent({ nodeId, parentId });
+
+      toast.success(`ตัดสาย "${nickname}" สำเร็จ`);
+      return true;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "ตัดสายไม่สำเร็จ";
+      toast.error(message);
+      console.error("Failed to remove parent:", err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { removeParent, loading };
+}

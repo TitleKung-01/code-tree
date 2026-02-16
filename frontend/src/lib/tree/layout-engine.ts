@@ -1,9 +1,8 @@
 import Dagre from "dagre";
 
 export interface TreeNodeData {
-  [key: string]: unknown;
   id: string;
-  parentId: string | null;
+  parentIds: string[];
   nickname: string;
   firstName: string;
   lastName: string;
@@ -12,6 +11,11 @@ export interface TreeNodeData {
   photoUrl: string;
   status: "studying" | "graduated" | "retired";
   siblingOrder: number;
+  onAddChild?: (node: TreeNodeData) => void;
+  onEdit?: (node: TreeNodeData) => void;
+  onDelete?: (node: TreeNodeData) => void;
+  onUnlink?: (node: TreeNodeData) => void;
+  onFocus?: (node: TreeNodeData) => void;
 }
 
 export interface LayoutNode {
@@ -26,26 +30,163 @@ export interface LayoutEdge {
   source: string;
   target: string;
   type: string;
+  animated: boolean;
+  style: Record<string, unknown>;
+  data?: Record<string, unknown>;
 }
 
-// สีตาม generation
+export type LayoutDirection = "TB" | "LR";
+
 export const GENERATION_COLORS: Record<number, string> = {
-  1: "#3b82f6", // blue
-  2: "#10b981", // green
-  3: "#f59e0b", // amber
-  4: "#ef4444", // red
-  5: "#8b5cf6", // purple
-  6: "#ec4899", // pink
-  7: "#06b6d4", // cyan
-  8: "#f97316", // orange
+  1: "#3b82f6",
+  2: "#10b981",
+  3: "#f59e0b",
+  4: "#ef4444",
+  5: "#8b5cf6",
+  6: "#ec4899",
+  7: "#06b6d4",
+  8: "#f97316",
 };
 
 export function getGenerationColor(generation: number): string {
-  return GENERATION_COLORS[generation] || "#6b7280"; // gray fallback
+  return GENERATION_COLORS[generation] || "#6b7280";
 }
 
-// แปลง flat nodes → React Flow nodes + edges
-export function buildFlowElements(nodes: TreeNodeData[]): {
+// ==================== หา Connected Component (รองรับ DAG) ====================
+function getConnectedComponent(
+  allNodes: TreeNodeData[],
+  startId: string,
+  visited: Set<string>
+): TreeNodeData[] {
+  const component: TreeNodeData[] = [];
+  const queue = [startId];
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+
+    const node = allNodes.find((n) => n.id === currentId);
+    if (!node) continue;
+    component.push(node);
+
+    // ไปทาง children (nodes ที่มี currentId เป็น parent)
+    const children = allNodes.filter((n) => n.parentIds.includes(currentId));
+    children.forEach((child) => {
+      if (!visited.has(child.id)) queue.push(child.id);
+    });
+
+    // ไปทาง parents
+    node.parentIds.forEach((pid) => {
+      if (!visited.has(pid)) queue.push(pid);
+    });
+  }
+
+  return component;
+}
+
+// ==================== Layout แต่ละ Subtree แยกกัน ====================
+function layoutSubtree(
+  nodes: TreeNodeData[],
+  direction: LayoutDirection,
+  offsetX: number,
+  offsetY: number
+): { layoutNodes: LayoutNode[]; layoutEdges: LayoutEdge[]; width: number; height: number } {
+  const nodeWidth = 200;
+  const nodeHeight = 100;
+
+  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+
+  g.setGraph({
+    rankdir: direction,
+    nodesep: direction === "TB" ? 60 : 80,
+    ranksep: direction === "TB" ? 120 : 160,
+    marginx: 20,
+    marginy: 20,
+  });
+
+  nodes.forEach((n) => {
+    g.setNode(n.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  // Edges (รองรับ multi-parent: สร้าง edge จากทุก parentId)
+  const edges: LayoutEdge[] = [];
+  nodes.forEach((n) => {
+    n.parentIds.forEach((pid) => {
+      const parentNode = nodes.find((p) => p.id === pid);
+      if (!parentNode) return;
+      const edgeColor = getGenerationColor(parentNode.generation);
+
+      edges.push({
+        id: `edge-${pid}-${n.id}`,
+        source: pid,
+        target: n.id,
+        type: "customEdge",
+        animated: false,
+        style: { stroke: edgeColor, strokeWidth: 2 },
+        data: { sourceGeneration: parentNode.generation },
+      });
+    });
+  });
+
+  edges.forEach((e) => g.setEdge(e.source, e.target));
+
+  Dagre.layout(g);
+
+  // หาขนาดของ subtree
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
+  nodes.forEach((n) => {
+    const pos = g.node(n.id);
+    minX = Math.min(minX, pos.x - nodeWidth / 2);
+    maxX = Math.max(maxX, pos.x + nodeWidth / 2);
+    minY = Math.min(minY, pos.y - nodeHeight / 2);
+    maxY = Math.max(maxY, pos.y + nodeHeight / 2);
+  });
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  // สร้าง layout nodes พร้อม offset
+  const layoutNodes: LayoutNode[] = nodes.map((n) => {
+    const pos = g.node(n.id);
+    return {
+      id: n.id,
+      type: "treeNode",
+      position: {
+        x: pos.x - nodeWidth / 2 - minX + offsetX,
+        y: pos.y - nodeHeight / 2 - minY + offsetY,
+      },
+      data: n,
+    };
+  });
+
+  return { layoutNodes, layoutEdges: edges, width, height };
+}
+
+// ==================== หา Connected Components ====================
+function findConnectedComponents(nodes: TreeNodeData[]): TreeNodeData[][] {
+  const visited = new Set<string>();
+  const components: TreeNodeData[][] = [];
+
+  nodes.forEach((node) => {
+    if (!visited.has(node.id)) {
+      const component = getConnectedComponent(nodes, node.id, visited);
+      if (component.length > 0) {
+        components.push(component);
+      }
+    }
+  });
+
+  return components;
+}
+
+// ==================== Main: Build Flow Elements ====================
+export function buildFlowElements(
+  nodes: TreeNodeData[],
+  direction: LayoutDirection = "TB"
+): {
   flowNodes: LayoutNode[];
   flowEdges: LayoutEdge[];
 } {
@@ -53,77 +194,51 @@ export function buildFlowElements(nodes: TreeNodeData[]): {
     return { flowNodes: [], flowEdges: [] };
   }
 
-  // สร้าง edges จาก parent_id
-  const flowEdges: LayoutEdge[] = nodes
-    .filter((n) => n.parentId !== null)
-    .map((n) => ({
-      id: `edge-${n.parentId}-${n.id}`,
-      source: n.parentId!,
-      target: n.id,
-      type: "smoothstep",
-    }));
+  const components = findConnectedComponents(nodes);
 
-  // ใช้ dagre คำนวณ layout
-  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  // component เดียว → layout ตรงๆ
+  if (components.length <= 1) {
+    const result = layoutSubtree(nodes, direction, 0, 0);
+    return { flowNodes: result.layoutNodes, flowEdges: result.layoutEdges };
+  }
 
-  g.setGraph({
-    rankdir: "TB",       // Top → Bottom
-    nodesep: 60,         // ระยะห่างแนวนอน
-    ranksep: 120,        // ระยะห่างแนวตั้ง (ระหว่าง generation)
-    marginx: 40,
-    marginy: 40,
-  });
-
-  // เพิ่ม nodes
-  nodes.forEach((n) => {
-    g.setNode(n.id, {
-      width: 200,   // ความกว้าง node
-      height: 100,  // ความสูง node
-    });
-  });
-
-  // เพิ่ม edges
-  flowEdges.forEach((e) => {
-    g.setEdge(e.source, e.target);
-  });
-
-  // คำนวณ layout
-  Dagre.layout(g);
-
-  // แปลงเป็น React Flow nodes
-  const flowNodes: LayoutNode[] = nodes.map((n) => {
-    const nodeWithPosition = g.node(n.id);
-    return {
-      id: n.id,
-      type: "treeNode",
-      position: {
-        x: nodeWithPosition.x - 100,  // offset ครึ่ง width
-        y: nodeWithPosition.y - 50,   // offset ครึ่ง height
-      },
-      data: n,
-    };
-  });
-
-  return { flowNodes, flowEdges };
+  // หลาย components → layout แยกแล้ววางเรียงกัน
+  return layoutMultipleComponents(components, direction);
 }
 
-// สร้าง generation labels (แถบแบ่งรุ่น)
-export function getGenerationLabels(nodes: TreeNodeData[]): {
-  generation: number;
-  y: number;
-  label: string;
-}[] {
-  if (nodes.length === 0) return [];
+// ★ Layout สำหรับ multiple connected components
+function layoutMultipleComponents(
+  components: TreeNodeData[][],
+  direction: LayoutDirection
+): { flowNodes: LayoutNode[]; flowEdges: LayoutEdge[] } {
+  const allFlowNodes: LayoutNode[] = [];
+  const allFlowEdges: LayoutEdge[] = [];
 
-  const genMap = new Map<number, number[]>();
+  const gap = direction === "TB" ? 100 : 120;
+  let currentOffset = 0;
 
-  // TODO: ใช้ actual flow node positions หลัง layout
-  // ตอนนี้ใช้ generation * spacing เป็น estimate
-  const generations = [...new Set(nodes.map((n) => n.generation))].sort();
+  // Sort components ตาม siblingOrder ของ root node แรก
+  const sorted = [...components].sort((a, b) => {
+    const rootA = a.find((n) => n.parentIds.length === 0);
+    const rootB = b.find((n) => n.parentIds.length === 0);
+    return (rootA?.siblingOrder || 0) - (rootB?.siblingOrder || 0);
+  });
 
-  return generations.map((gen) => ({
-    generation: gen,
-    y: (gen - 1) * 160,
-    label: `รุ่นที่ ${gen}`,
-  }));
+  sorted.forEach((component) => {
+    const offsetX = direction === "TB" ? currentOffset : 0;
+    const offsetY = direction === "LR" ? currentOffset : 0;
+
+    const result = layoutSubtree(component, direction, offsetX, offsetY);
+
+    allFlowNodes.push(...result.layoutNodes);
+    allFlowEdges.push(...result.layoutEdges);
+
+    if (direction === "TB") {
+      currentOffset += result.width + gap;
+    } else {
+      currentOffset += result.height + gap;
+    }
+  });
+
+  return { flowNodes: allFlowNodes, flowEdges: allFlowEdges };
 }

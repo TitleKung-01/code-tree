@@ -10,4 +10,6 @@ var (
     ErrSelfParent         = errors.New("cannot set node as its own parent")
     ErrCrossTreeMove      = errors.New("cannot move node to a different tree")
     ErrParentNotFound     = errors.New("parent node not found")
+    ErrAlreadyParent      = errors.New("already a parent of this node")
+    ErrNotAParent         = errors.New("not a parent of this node")
 )

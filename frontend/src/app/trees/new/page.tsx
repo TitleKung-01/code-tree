@@ -15,7 +15,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ArrowLeft, TreePine, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  TreePine,
+  Loader2,
+  Sparkles,
+  Building2,
+  FileText,
+  GraduationCap,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function NewTreePage() {
   const router = useRouter();
@@ -54,92 +63,152 @@ export default function NewTreePage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
-      <Link
-        href="/trees"
-        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
       >
-        <ArrowLeft className="h-4 w-4" />
-        กลับไปหน้ารายการ
-      </Link>
+        <Link
+          href="/trees"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          กลับไปหน้ารายการ
+        </Link>
+      </motion.div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
-              <TreePine className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <CardTitle>สร้างสายรหัสใหม่</CardTitle>
-              <CardDescription>กรอกข้อมูลเพื่อสร้างต้นไม้สายรหัส</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <Card className="overflow-hidden border-0 shadow-xl shadow-black/5">
+          {/* Accent top */}
+          <div className="h-1 bg-linear-to-r from-green-500 to-emerald-400" />
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">ชื่อสายรหัส *</Label>
-              <Input
-                id="name"
-                placeholder="เช่น สายรหัส 67"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoFocus
-              />
+          <CardHeader className="pb-4 pt-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-green-500/10 to-emerald-500/5">
+                <TreePine className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">สร้างสายรหัสใหม่</CardTitle>
+                <CardDescription>
+                  กรอกข้อมูลเพื่อสร้างต้นไม้สายรหัส
+                </CardDescription>
+              </div>
             </div>
+          </CardHeader>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">คำอธิบาย</Label>
-              <Input
-                id="description"
-                placeholder="เช่น สายรหัสรุ่นที่ 67 ภาควิชาวิศวกรรมคอมพิวเตอร์"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* ชื่อ — primary field */}
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-amber-500" />
+                    ชื่อสายรหัส <span className="text-red-500">*</span>
+                  </span>
+                </Label>
+                <Input
+                  id="name"
+                  placeholder="เช่น สายรหัส 67"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                  className="transition-shadow focus-visible:ring-2 focus-visible:ring-green-500/20"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="faculty">คณะ</Label>
-              <Input
-                id="faculty"
-                placeholder="เช่น คณะวิศวกรรมศาสตร์"
-                value={faculty}
-                onChange={(e) => setFaculty(e.target.value)}
-              />
-            </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    คำอธิบาย
+                  </span>
+                </Label>
+                <Input
+                  id="description"
+                  placeholder="เช่น สายรหัสรุ่นที่ 67 ภาควิชาวิศวกรรมคอมพิวเตอร์"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="transition-shadow focus-visible:ring-2 focus-visible:ring-green-500/20"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="department">ภาควิชา</Label>
-              <Input
-                id="department"
-                placeholder="เช่น ภาควิชาวิศวกรรมคอมพิวเตอร์"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-              />
-            </div>
+              {/* คณะ + ภาค */}
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Building2 className="h-3 w-3" />
+                  ข้อมูลสถาบัน (ไม่บังคับ)
+                </p>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="faculty" className="text-sm">
+                      <span className="flex items-center gap-1.5">
+                        <Building2 className="h-3 w-3 text-muted-foreground" />
+                        คณะ
+                      </span>
+                    </Label>
+                    <Input
+                      id="faculty"
+                      placeholder="เช่น คณะวิศวกรรมศาสตร์"
+                      value={faculty}
+                      onChange={(e) => setFaculty(e.target.value)}
+                      className="bg-background transition-shadow focus-visible:ring-2 focus-visible:ring-green-500/20"
+                    />
+                  </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => router.back()}
-              >
-                ยกเลิก
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 gap-2"
-                disabled={loading || !name.trim()}
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {loading ? "กำลังสร้าง..." : "สร้างสายรหัส"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="department" className="text-sm">
+                      <span className="flex items-center gap-1.5">
+                        <GraduationCap className="h-3 w-3 text-muted-foreground" />
+                        ภาควิชา
+                      </span>
+                    </Label>
+                    <Input
+                      id="department"
+                      placeholder="เช่น ภาควิชาวิศวกรรมคอมพิวเตอร์"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="bg-background transition-shadow focus-visible:ring-2 focus-visible:ring-green-500/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex-1 text-muted-foreground"
+                  onClick={() => router.back()}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 gap-2 bg-linear-to-r from-green-600 to-emerald-500 text-white shadow-lg shadow-green-500/20"
+                  disabled={loading || !name.trim()}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      กำลังสร้าง...
+                    </>
+                  ) : (
+                    <>
+                      <TreePine className="h-4 w-4" />
+                      สร้างสายรหัส
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }

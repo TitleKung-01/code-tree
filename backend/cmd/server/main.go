@@ -1,6 +1,7 @@
 package main
 
 import (
+    "context"
     "fmt"
     "log/slog"
     "net/http"
@@ -42,6 +43,12 @@ func main() {
     // ==================== Repositories ====================
     treeRepo := postgres.NewTreeRepo(db)
     nodeRepo := postgres.NewNodeRepo(db)
+
+    // ==================== Ensure node_parents table (multi-parent) ====================
+    if err := nodeRepo.EnsureNodeParentsTable(context.Background()); err != nil {
+        slog.Error("failed to ensure node_parents table", "error", err)
+        os.Exit(1)
+    }
 
     // ==================== Services ====================
     treeSvc := treeService.NewService(treeRepo)

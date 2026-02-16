@@ -2,43 +2,62 @@ import { TreeNodeData } from "./layout-engine";
 
 // หา root nodes (ไม่มี parent)
 export function findRootNodes(nodes: TreeNodeData[]): TreeNodeData[] {
-  return nodes.filter((n) => n.parentId === null);
+  return nodes.filter((n) => n.parentIds.length === 0);
 }
 
-// หา children ของ node
+// หา children ของ node (nodes ที่มี parentId อยู่ใน parentIds)
 export function findChildren(
   nodes: TreeNodeData[],
   parentId: string
 ): TreeNodeData[] {
   return nodes
-    .filter((n) => n.parentId === parentId)
+    .filter((n) => n.parentIds.includes(parentId))
     .sort((a, b) => a.siblingOrder - b.siblingOrder);
 }
 
-// หา parent ของ node
+// หา parents ทั้งหมดของ node (รองรับ multi-parent)
+export function findParents(
+  nodes: TreeNodeData[],
+  node: TreeNodeData
+): TreeNodeData[] {
+  if (node.parentIds.length === 0) return [];
+  return nodes.filter((n) => node.parentIds.includes(n.id));
+}
+
+// compat: หา parent ตัวแรก (สำหรับ code ที่ยังใช้ single parent)
 export function findParent(
   nodes: TreeNodeData[],
   node: TreeNodeData
 ): TreeNodeData | undefined {
-  if (!node.parentId) return undefined;
-  return nodes.find((n) => n.id === node.parentId);
+  if (node.parentIds.length === 0) return undefined;
+  return nodes.find((n) => node.parentIds.includes(n.id));
 }
 
-// หา ancestors (สายพี่ขึ้นไปจนถึง root)
+// หา ancestors (สายพี่ขึ้นไปจนถึง root - รองรับ multi-parent)
 export function findAncestors(
   nodes: TreeNodeData[],
   nodeId: string
 ): TreeNodeData[] {
   const ancestors: TreeNodeData[] = [];
-  let current = nodes.find((n) => n.id === nodeId);
+  const visited = new Set<string>();
+  const queue: string[] = [];
 
-  while (current?.parentId) {
-    const parent = nodes.find((n) => n.id === current!.parentId);
+  const startNode = nodes.find((n) => n.id === nodeId);
+  if (!startNode) return ancestors;
+
+  startNode.parentIds.forEach((pid) => queue.push(pid));
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!;
+    if (visited.has(currentId)) continue;
+    visited.add(currentId);
+
+    const parent = nodes.find((n) => n.id === currentId);
     if (parent) {
       ancestors.push(parent);
-      current = parent;
-    } else {
-      break;
+      parent.parentIds.forEach((pid) => {
+        if (!visited.has(pid)) queue.push(pid);
+      });
     }
   }
 
@@ -51,12 +70,16 @@ export function findDescendants(
   nodeId: string
 ): TreeNodeData[] {
   const descendants: TreeNodeData[] = [];
+  const visited = new Set<string>();
   const queue = [nodeId];
 
   while (queue.length > 0) {
     const currentId = queue.shift()!;
-    const children = nodes.filter((n) => n.parentId === currentId);
+    const children = nodes.filter(
+      (n) => n.parentIds.includes(currentId) && !visited.has(n.id)
+    );
     children.forEach((child) => {
+      visited.add(child.id);
       descendants.push(child);
       queue.push(child.id);
     });

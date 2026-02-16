@@ -12,8 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, TreePine, User } from "lucide-react";
+import { LogOut, TreePine, User, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 
 export function Navbar() {
   const router = useRouter();
@@ -26,7 +27,6 @@ export function Navbar() {
     router.refresh();
   };
 
-  // ดึงตัวอักษรแรกของชื่อ สำหรับ Avatar
   const getInitials = () => {
     const name =
       user?.user_metadata?.display_name || user?.email || "?";
@@ -34,52 +34,73 @@ export function Navbar() {
   };
 
   return (
-    <nav className="border-b bg-white">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+    <motion.nav
+      className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md"
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <TreePine className="h-6 w-6 text-green-600" />
-          <span className="text-xl font-bold">Code Tree</span>
+        <Link
+          href="/"
+          className="flex items-center gap-2 transition-opacity hover:opacity-80"
+        >
+          <motion.div
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-green-500 to-emerald-600"
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <TreePine className="h-4 w-4 text-white" />
+          </motion.div>
+          <span className="text-lg font-bold tracking-tight">
+            Code <span className="text-green-600">Tree</span>
+          </span>
         </Link>
 
         {/* Right side */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           {loading ? (
-            // Loading skeleton
-            <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />
+            <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
           ) : isAuthenticated ? (
             <>
-              {/* My Trees link */}
               <Link href="/trees">
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   สายรหัสของฉัน
                 </Button>
               </Link>
 
-              {/* User menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-9 w-9 rounded-full"
+                    className="gap-2 rounded-full pl-1 pr-2"
                   >
-                    <Avatar className="h-9 w-9">
-                      <AvatarFallback className="bg-green-100 text-green-700">
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-xs font-semibold text-white">
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
+                    <span className="hidden text-sm font-medium sm:inline">
+                      {user?.user_metadata?.display_name || "User"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center gap-2 p-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-green-100 text-green-700">
+                  <div className="flex items-center gap-2.5 px-3 py-2.5">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-linear-to-br from-green-500 to-emerald-600 text-sm font-semibold text-white">
                         {getInitials()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-semibold">
                         {user?.user_metadata?.display_name || "User"}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -97,7 +118,10 @@ export function Navbar() {
 
                   <DropdownMenuSeparator />
 
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-red-600 focus:text-red-600"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     ออกจากระบบ
                   </DropdownMenuItem>
@@ -107,17 +131,26 @@ export function Navbar() {
           ) : (
             <>
               <Link href="/login">
-                <Button variant="ghost" size="sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   เข้าสู่ระบบ
                 </Button>
               </Link>
               <Link href="/register">
-                <Button size="sm">สมัครสมาชิก</Button>
+                <Button
+                  size="sm"
+                  className="gap-1 bg-linear-to-r from-green-600 to-emerald-500 shadow-sm"
+                >
+                  สมัครสมาชิก
+                </Button>
               </Link>
             </>
           )}
         </div>
       </div>
-    </nav>
+    </motion.nav>
   );
 }

@@ -21,4 +21,10 @@ type Repository interface {
 
     // Sibling order
     GetMaxSiblingOrder(ctx context.Context, treeID string, parentID *string) (int, error)
+
+    // Multi-parent (node_parents junction table)
+    AddParentID(ctx context.Context, nodeID string, parentID string) error
+    RemoveParentID(ctx context.Context, nodeID string, parentID string) error
+    FindParentIDsByNodeIDs(ctx context.Context, nodeIDs []string) (map[string][]string, error)
+    EnsureNodeParentsTable(ctx context.Context) error
 }

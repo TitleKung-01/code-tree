@@ -7,15 +7,17 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   UserPlus,
   Pencil,
   Trash2,
   Unlink,
-  Navigation,
+  Eye,
   Copy,
 } from "lucide-react";
-import { TreeNodeData } from "@/lib/tree/layout-engine";
+import { TreeNodeData, getGenerationColor } from "@/lib/tree/layout-engine";
+import { getInitials } from "@/lib/tree/tree-utils";
 
 interface TreeContextMenuProps {
   children: React.ReactNode;
@@ -38,30 +40,42 @@ export default function TreeContextMenu({
   onCopyId,
   onFocus,
 }: TreeContextMenuProps) {
+  const genColor = getGenerationColor(node.generation);
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
 
       <ContextMenuContent className="w-52">
         {/* Header */}
-        <div className="px-2 py-1.5">
-          <p className="text-sm font-medium">{node.nickname}</p>
-          <p className="text-xs text-muted-foreground">
-            รุ่นที่ {node.generation}
-            {node.studentId && ` · ${node.studentId}`}
-          </p>
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <Avatar className="h-7 w-7">
+            <AvatarFallback
+              className="text-xs font-semibold text-white"
+              style={{ backgroundColor: genColor }}
+            >
+              {getInitials(node.nickname)}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-sm font-semibold">{node.nickname}</p>
+            <p className="text-[11px] text-muted-foreground">
+              รุ่นที่ {node.generation}
+              {node.studentId && ` · ${node.studentId}`}
+            </p>
+          </div>
         </div>
 
         <ContextMenuSeparator />
 
         <ContextMenuItem onClick={() => onFocus(node)}>
-          <Navigation className="mr-2 h-4 w-4" />
+          <Eye className="mr-2 h-4 w-4" />
           ดูข้อมูล
         </ContextMenuItem>
 
         <ContextMenuItem onClick={() => onAddChild(node)}>
           <UserPlus className="mr-2 h-4 w-4" />
-          เพิ่มน้องให้ {node.nickname}
+          เพิ่มน้อง
         </ContextMenuItem>
 
         <ContextMenuItem onClick={() => onEdit(node)}>
@@ -71,8 +85,7 @@ export default function TreeContextMenu({
 
         <ContextMenuSeparator />
 
-        {/* ตัดสาย (เฉพาะ node ที่ไม่ใช่ root) */}
-        {node.parentId && (
+        {node.parentIds.length > 0 && (
           <ContextMenuItem onClick={() => onUnlink(node)}>
             <Unlink className="mr-2 h-4 w-4" />
             ตัดสาย (เป็น root)
