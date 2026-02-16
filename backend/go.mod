@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	connectrpc.com/connect v1.19.1
+	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/joho/godotenv v1.5.1
 	github.com/rs/cors v1.11.1
 	golang.org/x/net v0.50.0
@@ -12,7 +13,6 @@ require (
 
 require (
 	github.com/MicahParks/jwkset v0.11.0 // indirect
-	github.com/MicahParks/keyfunc/v3 v3.8.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
