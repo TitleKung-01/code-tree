@@ -17,8 +17,10 @@ interface TreeEditorInnerProps {
   onClosePanel: () => void;
   onEdit: (node: TreeNodeData) => void;
   onDelete: (node: TreeNodeData) => void;
+  onUnlink: (node: TreeNodeData) => void;
   onAddChild: (node: TreeNodeData) => void;
   onNodeSelect: (node: TreeNodeData) => void;
+  onContextAction?: (action: string, node: TreeNodeData) => void;
 }
 
 export default function TreeEditorInner({
@@ -32,6 +34,7 @@ export default function TreeEditorInner({
   onClosePanel,
   onEdit,
   onDelete,
+  onUnlink,
   onAddChild,
   onNodeSelect,
 }: TreeEditorInnerProps) {
@@ -57,6 +60,10 @@ export default function TreeEditorInner({
         onNodeClick={onNodeClick}
         onConnect={onConnect}
         onNodeDrop={onNodeDrop}
+        onAddChild={onAddChild}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onUnlink={onUnlink}
       />
 
       <NodeDetailPanel

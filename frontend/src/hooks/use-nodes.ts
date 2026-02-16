@@ -229,3 +229,33 @@ export function useMoveNode() {
 
   return { moveNode, loading };
 }
+
+// ==================== Unlink Node ====================
+
+export function useUnlinkNode() {
+    const [loading, setLoading] = useState(false);
+  
+    const unlinkNode = async (
+      nodeId: string,
+      nickname: string
+    ): Promise<boolean> => {
+      try {
+        setLoading(true);
+  
+        await nodeClient.unlinkNode({ nodeId });
+  
+        toast.success(`ตัดสาย "${nickname}" แล้ว (เป็น root node)`);
+        return true;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "ตัดสายไม่สำเร็จ";
+        toast.error(message);
+        console.error("Failed to unlink node:", err);
+        return false;
+      } finally {
+        setLoading(false);
+        return false;
+      }
+    };
+
+    return { unlinkNode, loading };
+  }

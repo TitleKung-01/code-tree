@@ -86,6 +86,14 @@ message GetTreeNodesResponse {
   repeated Node nodes = 1;
 }
 
+message UnlinkNodeRequest {
+  string node_id = 1;  // node ที่จะตัดสาย (set parent = null)
+}
+
+message UnlinkNodeResponse {
+  Node node = 1;
+}
+
 // ==================== Service ====================
 
 service NodeService {
@@ -93,5 +101,6 @@ service NodeService {
   rpc UpdateNode(UpdateNodeRequest) returns (UpdateNodeResponse);
   rpc DeleteNode(DeleteNodeRequest) returns (DeleteNodeResponse);
   rpc MoveNode(MoveNodeRequest) returns (MoveNodeResponse);
+  rpc UnlinkNode(UnlinkNodeRequest) returns (UnlinkNodeResponse);  // NEW
   rpc GetTreeNodes(GetTreeNodesRequest) returns (GetTreeNodesResponse);
 }

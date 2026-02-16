@@ -384,3 +384,59 @@ func domainStatusToProto(s node.Status) nodev1.NodeStatus {
         return nodev1.NodeStatus_NODE_STATUS_STUDYING
     }
 }
+
+// ==================== UnlinkNode ====================
+
+func (s *Service) UnlinkNode(
+    ctx context.Context,
+    req *connect.Request[nodev1.UnlinkNodeRequest],
+) (*connect.Response[nodev1.UnlinkNodeResponse], error) {
+
+    userID, err := middleware.GetUserID(ctx)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeUnauthenticated, err)
+    }
+
+    if req.Msg.NodeId == "" {
+        return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("node_id is required"))
+    }
+
+    // หา node
+    n, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        if errors.Is(err, node.ErrNodeNotFound) {
+            return nil, connect.NewError(connect.CodeNotFound, err)
+        }
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    // ตรวจ ownership
+    t, err := s.treeRepo.FindByID(ctx, n.TreeID)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+    if t.CreatedBy != userID {
+        return nil, connect.NewError(connect.CodePermissionDenied, tree.ErrUnauthorized)
+    }
+
+    // ถ้าเป็น root อยู่แล้ว → ไม่ต้องทำอะไร
+    if n.IsRoot() {
+        return connect.NewResponse(&nodev1.UnlinkNodeResponse{
+            Node: domainToProto(n),
+        }), nil
+    }
+
+    // Set parent = nil, generation = 1
+    if err := s.nodeRepo.UpdateParent(ctx, req.Msg.NodeId, nil, 1); err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    updated, err := s.nodeRepo.FindByID(ctx, req.Msg.NodeId)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeInternal, err)
+    }
+
+    return connect.NewResponse(&nodev1.UnlinkNodeResponse{
+        Node: domainToProto(updated),
+    }), nil
+}

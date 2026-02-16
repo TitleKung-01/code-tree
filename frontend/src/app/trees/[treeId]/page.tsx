@@ -1,15 +1,25 @@
 "use client";
 
-import { useState, useCallback, use } from "react";
+import { useState, useCallback, useEffect, use } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import TreeToolbar from "@/components/tree/tree-toolbar";
 import NodeFormDialog from "@/components/node/node-form-dialog";
 import ConnectConfirmDialog from "@/components/tree/connect-confirm-dialog";
+import DeleteNodeDialog from "@/components/node/delete-confirm-dialog";
+import UnlinkNodeDialog from "@/components/node/unlink-node-dialog";
+import TreeSearch from "@/components/tree/tree-search";
 import TreeEditorInner from "@/components/tree/tree-editor-inner";
 import { TreeNodeData } from "@/lib/tree/layout-engine";
 import { validateMove } from "@/lib/tree/validator";
 import { useTree } from "@/hooks/use-trees";
-import { useTreeNodes, useCreateNode, useMoveNode } from "@/hooks/use-nodes";
+import {
+  useTreeNodes,
+  useCreateNode,
+  useUpdateNode,
+  useDeleteNode,
+  useMoveNode,
+  useUnlinkNode,
+} from "@/hooks/use-nodes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -28,27 +38,70 @@ export default function TreeEditorPage({ params }: TreeEditorPageProps) {
 }
 
 function TreeEditorContent({ treeId }: { treeId: string }) {
+  // Data hooks
   const { tree, loading: treeLoading } = useTree(treeId);
-  const {
-    nodes: treeNodes,
-    loading: nodesLoading,
-    refetch: refetchNodes,
-  } = useTreeNodes(treeId);
+  const { nodes: treeNodes, loading: nodesLoading, refetch: refetchNodes } = useTreeNodes(treeId);
   const { createNode, loading: creating } = useCreateNode();
+  const { updateNode, loading: updating } = useUpdateNode();
+  const { deleteNode, loading: deleting } = useDeleteNode();
   const { moveNode, loading: moving } = useMoveNode();
+  const { unlinkNode, loading: unlinking } = useUnlinkNode();
 
-  // UI state
+  // ==================== UI State ====================
   const [selectedNode, setSelectedNode] = useState<TreeNodeData | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+
+  // Add dialog
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
 
-  // Move dialog state
+  // Edit dialog
+  const [editNode, setEditNode] = useState<TreeNodeData | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  // Delete dialog
+  const [deleteTarget, setDeleteTarget] = useState<TreeNodeData | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // Unlink dialog
+  const [unlinkTarget, setUnlinkTarget] = useState<TreeNodeData | null>(null);
+  const [isUnlinkDialogOpen, setIsUnlinkDialogOpen] = useState(false);
+
+  // Move dialog
   const [moveDialog, setMoveDialog] = useState<{
     open: boolean;
-    sourceNode: TreeNodeData | null; // จะเป็น parent ใหม่
-    targetNode: TreeNodeData | null; // node ที่จะถูกย้าย
+    sourceNode: TreeNodeData | null;
+    targetNode: TreeNodeData | null;
   }>({ open: false, sourceNode: null, targetNode: null });
+
+  // Search
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // ==================== Keyboard Shortcuts ====================
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F → Search
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+
+      // Escape → Close search/panels
+      if (e.key === "Escape") {
+        setIsSearchOpen(false);
+        setIsPanelOpen(false);
+      }
+
+      // Delete → Delete selected node
+      if (e.key === "Delete" && selectedNode && !isAddDialogOpen && !isEditDialogOpen) {
+        setDeleteTarget(selectedNode);
+        setIsDeleteDialogOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedNode, isAddDialogOpen, isEditDialogOpen]);
 
   // ==================== Node Click ====================
   const handleNodeClick = useCallback((node: TreeNodeData) => {
@@ -73,24 +126,8 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
   }, []);
 
   const handleCreateNode = useCallback(
-    async (data: {
-      nickname: string;
-      firstName: string;
-      lastName: string;
-      studentId: string;
-      parentId: string | null;
-      status: string;
-    }) => {
-      const result = await createNode({
-        treeId,
-        parentId: data.parentId,
-        nickname: data.nickname,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        studentId: data.studentId,
-        status: data.status,
-      });
-
+    async (data: { nickname: string; firstName: string; lastName: string; studentId: string; parentId: string | null; status: string }) => {
+      const result = await createNode({ treeId, ...data });
       if (result) {
         setIsAddDialogOpen(false);
         refetchNodes();
@@ -99,77 +136,115 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
     [treeId, createNode, refetchNodes]
   );
 
-  // ==================== Move Node (shared logic) ====================
+  // ==================== Edit Node ====================
+  const handleEditNode = useCallback((node: TreeNodeData) => {
+    setEditNode(node);
+    setIsEditDialogOpen(true);
+    setIsPanelOpen(false);
+  }, []);
+
+  const handleUpdateNode = useCallback(
+    async (data: { nickname: string; firstName: string; lastName: string; studentId: string; parentId: string | null; status: string }) => {
+      if (!editNode) return;
+
+      const success = await updateNode({
+        id: editNode.id,
+        nickname: data.nickname,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        studentId: data.studentId,
+        status: data.status,
+      });
+
+      if (success) {
+        setIsEditDialogOpen(false);
+        setEditNode(null);
+        refetchNodes();
+      }
+    },
+    [editNode, updateNode, refetchNodes]
+  );
+
+  // ==================== Delete Node ====================
+  const handleDeleteNode = useCallback((node: TreeNodeData) => {
+    setDeleteTarget(node);
+    setIsDeleteDialogOpen(true);
+    setIsPanelOpen(false);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    const success = await deleteNode(deleteTarget.id, deleteTarget.nickname);
+    if (success) {
+      setIsDeleteDialogOpen(false);
+      setDeleteTarget(null);
+      setSelectedNode(null);
+      refetchNodes();
+    }
+  }, [deleteTarget, deleteNode, refetchNodes]);
+
+  // ==================== Unlink Node ====================
+  const handleUnlinkNode = useCallback((node: TreeNodeData) => {
+    setUnlinkTarget(node);
+    setIsUnlinkDialogOpen(true);
+  }, []);
+
+  const handleConfirmUnlink = useCallback(async () => {
+    if (!unlinkTarget) return;
+
+    const success = await unlinkNode(unlinkTarget.id, unlinkTarget.nickname);
+    if (success) {
+      setIsUnlinkDialogOpen(false);
+      setUnlinkTarget(null);
+      refetchNodes();
+    }
+  }, [unlinkTarget, unlinkNode, refetchNodes]);
+
+  // ==================== Move Node ====================
   const initiateMoveNode = useCallback(
     (newParentId: string, nodeToMoveId: string) => {
       const sourceNode = treeNodes.find((n) => n.id === newParentId);
       const targetNode = treeNodes.find((n) => n.id === nodeToMoveId);
-
       if (!sourceNode || !targetNode) return;
 
-      // Frontend validation
       const validation = validateMove(treeNodes, nodeToMoveId, newParentId);
-
       if (!validation.valid) {
         toast.error(validation.error || "ไม่สามารถย้ายได้");
         return;
       }
 
-      // เปิด confirm dialog
-      setMoveDialog({
-        open: true,
-        sourceNode,  // parent ใหม่
-        targetNode,  // node ที่จะย้าย
-      });
+      setMoveDialog({ open: true, sourceNode, targetNode });
     },
     [treeNodes]
   );
 
-  // Handle connect (ลากเส้น handle → handle)
-  // source = พี่ (parent ใหม่), target = น้อง (node ที่จะย้าย)
   const handleConnect = useCallback(
-    (sourceId: string, targetId: string) => {
-      initiateMoveNode(sourceId, targetId);
-    },
+    (sourceId: string, targetId: string) => initiateMoveNode(sourceId, targetId),
     [initiateMoveNode]
   );
 
-  // ★ Handle node drop (ลาก node ไปวางบน node อื่น)
-  // draggedNode = node ที่จะย้าย, targetNode = parent ใหม่
   const handleNodeDrop = useCallback(
-    (draggedNodeId: string, targetNodeId: string) => {
-      initiateMoveNode(targetNodeId, draggedNodeId);
-    },
+    (draggedNodeId: string, targetNodeId: string) => initiateMoveNode(targetNodeId, draggedNodeId),
     [initiateMoveNode]
   );
 
-  // Confirm move
   const handleConfirmMove = useCallback(async () => {
     const { sourceNode, targetNode } = moveDialog;
     if (!sourceNode || !targetNode) return;
 
-    // sourceNode = parent ใหม่, targetNode = node ที่ย้าย
     const success = await moveNode(targetNode.id, sourceNode.id);
-
     if (success) {
       setMoveDialog({ open: false, sourceNode: null, targetNode: null });
       refetchNodes();
     }
   }, [moveDialog, moveNode, refetchNodes]);
 
-  // ==================== Edit / Delete (placeholder → Day 10) ====================
-  const handleEditNode = useCallback((node: TreeNodeData) => {
-    console.log("TODO Day 10: edit", node.nickname);
+  // ==================== Search ====================
+  const handleSearchSelect = useCallback((node: TreeNodeData) => {
+    setSelectedNode(node);
+    setIsPanelOpen(true);
   }, []);
-
-  const handleDeleteNode = useCallback((node: TreeNodeData) => {
-    console.log("TODO Day 10: delete", node.nickname);
-  }, []);
-
-  // ==================== Auto Layout ====================
-  const handleAutoLayout = useCallback(() => {
-    refetchNodes();
-  }, [refetchNodes]);
 
   // ==================== Loading ====================
   if (treeLoading || nodesLoading) {
@@ -177,12 +252,13 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <div className="relative flex h-[calc(100vh-4rem)] flex-col">
       <TreeToolbar
         treeName={tree?.name || "สายรหัส"}
         nodeCount={treeNodes.length}
         onAddNode={handleAddNode}
-        onAutoLayout={handleAutoLayout}
+        onAutoLayout={() => refetchNodes()}
+        onSearch={() => setIsSearchOpen(true)}
       />
 
       <div className="flex-1">
@@ -191,17 +267,27 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
           onNodeClick={handleNodeClick}
           onConnect={handleConnect}
           onNodeDrop={handleNodeDrop}
+          onAddChild={handleAddChild}
+          onEdit={handleEditNode}
+          onDelete={handleDeleteNode}
+          onUnlink={handleUnlinkNode}
           selectedNode={selectedNode}
           allNodes={treeNodes}
           isPanelOpen={isPanelOpen}
           onClosePanel={handleClosePanel}
-          onEdit={handleEditNode}
-          onDelete={handleDeleteNode}
-          onAddChild={handleAddChild}
           onNodeSelect={setSelectedNode}
         />
       </div>
 
+      {/* Search Overlay */}
+      <TreeSearch
+        nodes={treeNodes}
+        open={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onSelect={handleSearchSelect}
+      />
+
+      {/* Add Node Dialog */}
       <NodeFormDialog
         open={isAddDialogOpen}
         onClose={() => setIsAddDialogOpen(false)}
@@ -211,11 +297,40 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         loading={creating}
       />
 
+      {/* Edit Node Dialog */}
+      <NodeFormDialog
+        open={isEditDialogOpen}
+        onClose={() => { setIsEditDialogOpen(false); setEditNode(null); }}
+        onSubmit={handleUpdateNode}
+        allNodes={treeNodes}
+        loading={updating}
+        editNode={editNode}
+      />
+
+      {/* Delete Dialog */}
+      <DeleteNodeDialog
+        open={isDeleteDialogOpen}
+        onClose={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}
+        onConfirm={handleConfirmDelete}
+        node={deleteTarget}
+        allNodes={treeNodes}
+        loading={deleting}
+      />
+
+      {/* Unlink Dialog */}
+      <UnlinkNodeDialog
+        open={isUnlinkDialogOpen}
+        onClose={() => { setIsUnlinkDialogOpen(false); setUnlinkTarget(null); }}
+        onConfirm={handleConfirmUnlink}
+        node={unlinkTarget}
+        allNodes={treeNodes}
+        loading={unlinking}
+      />
+
+      {/* Move Dialog */}
       <ConnectConfirmDialog
         open={moveDialog.open}
-        onClose={() =>
-          setMoveDialog({ open: false, sourceNode: null, targetNode: null })
-        }
+        onClose={() => setMoveDialog({ open: false, sourceNode: null, targetNode: null })}
         onConfirm={handleConfirmMove}
         sourceNode={moveDialog.sourceNode}
         targetNode={moveDialog.targetNode}
@@ -235,9 +350,7 @@ function LoadingState() {
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
-          <p className="mt-4 text-sm text-muted-foreground">
-            กำลังโหลดสายรหัส...
-          </p>
+          <p className="mt-4 text-sm text-muted-foreground">กำลังโหลดสายรหัส...</p>
         </div>
       </div>
     </div>
