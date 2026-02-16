@@ -28,7 +28,7 @@ export default async function TreesPage() {
         <p className="text-muted-foreground">
           ✅ Protected Route ทำงานแล้ว!
           <br />
-          📅 Day 6 จะเพิ่ม Tree listing + Create Tree ที่นี่
+          📅 Day 6 จะเพิ่ม Tree listing + Create Tree ที่นี่Kun
         </p>
       </div>
     </div>
