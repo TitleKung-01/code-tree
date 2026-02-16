@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package node.v1;
 
-option go_package = "github.com/yourusername/code-tree-backend/gen/node/v1;nodev1";
+option go_package = "github.com/TitleKung-01/code-tree-backend/gen/node/v1;nodev1";
 
 // ==================== Messages ====================
 

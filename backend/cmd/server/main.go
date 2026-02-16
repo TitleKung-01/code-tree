@@ -1,73 +1,106 @@
 package main
 
 import (
-    "fmt"
-    "log/slog"
-    "net/http"
-    "os"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-    "github.com/rs/cors"
-    "golang.org/x/net/http2"
-    "golang.org/x/net/http2/h2c"
+	"github.com/rs/cors"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 
-    "github.com/TitleKung-01/code-tree-backend/internal/config"
-    "github.com/TitleKung-01/code-tree-backend/internal/middleware"
+	"github.com/TitleKung-01/code-tree-backend/gen/tree/v1/treev1connect"
+	"github.com/TitleKung-01/code-tree-backend/internal/config"
+	"github.com/TitleKung-01/code-tree-backend/internal/middleware"
+	"github.com/TitleKung-01/code-tree-backend/internal/repository/postgres"
+	treeService "github.com/TitleKung-01/code-tree-backend/internal/service/tree"
 )
 
 func main() {
-    // Load config
-    cfg := config.Load()
+	// ==================== Config ====================
+	cfg := config.Load()
 
-    // Logger
-    logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-        Level: slog.LevelDebug,
-    }))
-    slog.SetDefault(logger)
+	// ==================== Logger ====================
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 
-    // Auth middleware
-    authMiddleware := middleware.NewAuthMiddleware(cfg.SupabaseJWTSecret)
+	// ==================== Database ====================
+	db, err := postgres.NewDB(cfg.DatabaseURL)
+	if err != nil {
+		slog.Error("failed to connect database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
 
-    // Mux
-    mux := http.NewServeMux()
+	// ==================== Repositories ====================
+	treeRepo := postgres.NewTreeRepo(db)
 
-    // Health check (public — ไม่ต้อง auth)
-    mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusOK)
-        fmt.Fprintf(w, `{"status":"ok","service":"code-tree-backend"}`)
-    })
+	// ==================== Services ====================
+	treeSvc := treeService.NewService(treeRepo)
 
-    // Test auth endpoint
-    mux.Handle("/api/me", authMiddleware.Wrap(http.HandlerFunc(
-        func(w http.ResponseWriter, r *http.Request) {
-            userID, _ := middleware.GetUserID(r.Context())
-            email := middleware.GetUserEmail(r.Context())
-            w.Header().Set("Content-Type", "application/json")
-            fmt.Fprintf(w, `{"user_id":"%s","email":"%s"}`, userID, email)
-        },
-    )))
+	// ==================== Auth Middleware ====================
+	authMiddleware, err := middleware.NewAuthMiddleware(cfg.SupabaseURL, cfg.SupabaseJWTSecret)
+	if err != nil {
+		slog.Error("failed to initialize auth middleware", "error", err)
+		os.Exit(1)
+	}
 
-    // TODO: Day 3 — Register gRPC services here
-    // ใช้ authMiddleware.Wrap() ครอบ gRPC handlers
+	// ==================== Mux ====================
+	mux := http.NewServeMux()
 
-    // CORS
-    corsHandler := cors.New(cors.Options{
-        AllowedOrigins:   []string{"http://localhost:3000"},
-        AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders:   []string{"*"},
-        AllowCredentials: true,
-    }).Handler(mux)
+	// Health check (public)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"ok","service":"code-tree-backend"}`)
+	})
 
-    // Server
-    addr := fmt.Sprintf(":%s", cfg.Port)
-    slog.Info("server starting", "addr", addr)
+	// gRPC Services (protected by auth)
+	treePath, treeHandler := treev1connect.NewTreeServiceHandler(treeSvc)
+	mux.Handle(treePath, authMiddleware.Wrap(treeHandler))
 
-    err := http.ListenAndServe(
-        addr,
-        h2c.NewHandler(corsHandler, &http2.Server{}),
-    )
-    if err != nil {
-        slog.Error("server failed", "error", err)
-        os.Exit(1)
-    }
+	slog.Info("registered gRPC service", "path", treePath)
+
+	// ==================== CORS ====================
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins: []string{
+			"http://localhost:3000",
+			"http://localhost:3001",
+		},
+		AllowedMethods: []string{
+			"GET", "POST", "PUT", "DELETE", "OPTIONS",
+		},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	}).Handler(mux)
+
+	// ==================== Server ====================
+	addr := fmt.Sprintf(":%s", cfg.Port)
+	slog.Info("server starting", "addr", addr)
+
+	server := &http.Server{
+		Addr:    addr,
+		Handler: h2c.NewHandler(corsHandler, &http2.Server{}),
+	}
+
+	// Graceful shutdown
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		slog.Info("shutting down server...")
+		server.Close()
+	}()
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("server stopped")
 }

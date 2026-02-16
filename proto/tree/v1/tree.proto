@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package tree.v1;
 
-option go_package = "github.com/yourusername/code-tree-backend/gen/tree/v1;treev1";
+option go_package = "github.com/TitleKung-01/code-tree-backend/gen/tree/v1;treev1";
 
 // ==================== Messages ====================
 

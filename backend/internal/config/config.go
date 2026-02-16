@@ -10,6 +10,7 @@ import (
 type Config struct {
     Port              string
     DatabaseURL       string
+    SupabaseURL       string
     SupabaseJWTSecret string
 }
 
@@ -23,6 +24,7 @@ func Load() *Config {
     return &Config{
         Port:              getEnv("PORT", "8080"),
         DatabaseURL:       getEnv("DATABASE_URL", ""),
+        SupabaseURL:       getEnv("SUPABASE_URL", ""),
         SupabaseJWTSecret: getEnv("SUPABASE_JWT_SECRET", ""),
     }
 }
