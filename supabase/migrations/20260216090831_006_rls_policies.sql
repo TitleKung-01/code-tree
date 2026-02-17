@@ -27,7 +27,7 @@ CREATE POLICY "trees_insert"
     ON public.trees FOR INSERT
     WITH CHECK (auth.uid() = created_by);
 
--- แก้ไข tree ได้เฉพาะเจ้าของ
+-- แก้ไข tree ได้เฉพาะเจ้าของ (รวมถึง structure)
 CREATE POLICY "trees_update"
     ON public.trees FOR UPDATE
     USING (auth.uid() = created_by)

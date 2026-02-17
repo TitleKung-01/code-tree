@@ -97,25 +97,29 @@ export function useCreateNode() {
   const createNode = async (data: {
     treeId: string;
     parentId?: string | null;
+    parentIds?: string[];
     nickname: string;
     firstName?: string;
     lastName?: string;
     studentId?: string;
     photoUrl?: string;
     status?: string;
+    generation?: number;
   }): Promise<TreeNodeData | null> => {
     try {
       setLoading(true);
 
       const response = await nodeClient.createNode({
         treeId: data.treeId,
-        parentId: data.parentId ?? undefined,
+        parentId: data.parentIds?.length ? undefined : (data.parentId ?? undefined),
+        parentIds: data.parentIds ?? [],
         nickname: data.nickname,
         firstName: data.firstName || "",
         lastName: data.lastName || "",
         studentId: data.studentId || "",
         photoUrl: data.photoUrl || "",
         status: mapStatusToProto(data.status || "studying"),
+        generation: data.generation ?? 0,
       });
 
       toast.success(`เพิ่ม "${data.nickname}" สำเร็จ!`);
@@ -150,6 +154,7 @@ export function useUpdateNode() {
     studentId?: string;
     photoUrl?: string;
     status?: string;
+    generation?: number;
   }): Promise<boolean> => {
     try {
       setLoading(true);
@@ -162,6 +167,7 @@ export function useUpdateNode() {
         studentId: data.studentId || "",
         photoUrl: data.photoUrl || "",
         status: mapStatusToProto(data.status || "studying"),
+        generation: data.generation ?? 0,
       });
 
       toast.success("แก้ไขข้อมูลสำเร็จ!");

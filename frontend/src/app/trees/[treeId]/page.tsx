@@ -11,6 +11,7 @@ import DeleteNodeDialog from "@/components/node/delete-confirm-dialog";
 import UnlinkNodeDialog from "@/components/node/unlink-node-dialog";
 import TreeSearch from "@/components/tree/tree-search";
 import TreeEditorInner from "@/components/tree/tree-editor-inner";
+import ShareDialog from "@/components/tree/share-dialog";
 import { TreeNodeData } from "@/lib/tree/layout-engine";
 import { validateAddParent } from "@/lib/tree/validator";
 import { useTree } from "@/hooks/use-trees";
@@ -23,11 +24,11 @@ import {
   useAddParent,
   useRemoveParent,
 } from "@/hooks/use-nodes";
+import { useMyRole, canEdit as canEditRole } from "@/hooks/use-shares";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
-  TreePine,
   Loader2,
   AlertTriangle,
   ArrowLeft,
@@ -62,10 +63,14 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
   const { unlinkNode, loading: unlinking } = useUnlinkNode();
   const { addParent, loading: adding } = useAddParent();
   const { removeParent } = useRemoveParent();
+  const { role: myRole, isCreator } = useMyRole(treeId);
+
+  const userCanEdit = canEditRole(myRole) || isCreator;
 
   /* ─── UI State ─── */
   const [selectedNode, setSelectedNode] = useState<TreeNodeData | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
@@ -108,7 +113,8 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         e.key === "Delete" &&
         selectedNode &&
         !isAddDialogOpen &&
-        !isEditDialogOpen
+        !isEditDialogOpen &&
+        userCanEdit
       ) {
         setDeleteTarget(selectedNode);
         setIsDeleteDialogOpen(true);
@@ -117,7 +123,7 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNode, isAddDialogOpen, isEditDialogOpen]);
+  }, [selectedNode, isAddDialogOpen, isEditDialogOpen, userCanEdit]);
 
   /* ─── Node Click ─── */
   const handleNodeClick = useCallback((node: TreeNodeData) => {
@@ -147,8 +153,9 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
       firstName: string;
       lastName: string;
       studentId: string;
-      parentId: string | null;
+      parentIds: string[];
       status: string;
+      generation: number;
     }) => {
       const result = await createNode({ treeId, ...data });
       if (result) {
@@ -172,8 +179,9 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
       firstName: string;
       lastName: string;
       studentId: string;
-      parentId: string | null;
+      parentIds: string[];
       status: string;
+      generation: number;
     }) => {
       if (!editNode) return;
 
@@ -184,6 +192,7 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         lastName: data.lastName,
         studentId: data.studentId,
         status: data.status,
+        generation: data.generation,
       });
 
       if (success) {
@@ -412,11 +421,15 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         nodeCount={treeNodes.length}
         direction={direction}
         viewMode={viewMode}
-        onAddNode={handleAddNode}
+        onAddNode={userCanEdit ? handleAddNode : undefined}
         onAutoLayout={() => refetchNodes()}
         onSearch={() => setIsSearchOpen(true)}
         onToggleDirection={handleToggleDirection}
         onViewModeChange={setViewMode}
+        onShare={() => setIsShareDialogOpen(true)}
+        canEdit={userCanEdit}
+        myRole={myRole}
+        isCreator={isCreator}
       />
 
       <div className="relative flex-1">
@@ -426,13 +439,13 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
               treeNodes={treeNodes}
               direction={direction}
               onNodeClick={handleNodeClick}
-              onConnect={handleConnect}
-              onNodeDrop={handleNodeDrop}
-              onEdgeClick={handleEdgeClick}
-              onAddChild={handleAddChild}
-              onEdit={handleEditNode}
-              onDelete={handleDeleteNode}
-              onUnlink={handleUnlinkNode}
+              onConnect={userCanEdit ? handleConnect : undefined}
+              onNodeDrop={userCanEdit ? handleNodeDrop : undefined}
+              onEdgeClick={userCanEdit ? handleEdgeClick : undefined}
+              onAddChild={userCanEdit ? handleAddChild : undefined}
+              onEdit={userCanEdit ? handleEditNode : undefined}
+              onDelete={userCanEdit ? handleDeleteNode : undefined}
+              onUnlink={userCanEdit ? handleUnlinkNode : undefined}
               selectedNode={selectedNode}
               allNodes={treeNodes}
               isPanelOpen={isPanelOpen}
@@ -544,6 +557,15 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         targetNode={moveDialog.targetNode}
         allNodes={treeNodes}
         loading={adding}
+      />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={isShareDialogOpen}
+        onClose={() => setIsShareDialogOpen(false)}
+        treeId={treeId}
+        treeName={tree.name}
+        isCreator={isCreator}
       />
     </div>
   );

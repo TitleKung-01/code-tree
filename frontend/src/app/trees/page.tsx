@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { useMyTrees, useDeleteTree } from "@/hooks/use-trees";
+import { useSharedWithMe, roleToLabel } from "@/hooks/use-shares";
+import { ShareRole } from "@/gen/tree/v1/tree_pb";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -43,6 +46,10 @@ import {
   ArrowRight,
   AlertTriangle,
   RefreshCw,
+  Share2,
+  Eye,
+  Pencil,
+  Crown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -50,6 +57,7 @@ export default function TreesPage() {
   const router = useRouter();
   const { loading: authLoading, isAuthenticated } = useAuth();
   const { trees, loading, error, refetch } = useMyTrees();
+  const { trees: sharedTrees, loading: sharedLoading } = useSharedWithMe();
   const { deleteTree, loading: deleting } = useDeleteTree();
 
   useEffect(() => {
@@ -74,6 +82,17 @@ export default function TreesPage() {
       });
     } catch {
       return dateStr;
+    }
+  };
+
+  const getRoleIcon = (role: ShareRole) => {
+    switch (role) {
+      case ShareRole.OWNER:
+        return <Crown className="h-3 w-3" />;
+      case ShareRole.EDITOR:
+        return <Pencil className="h-3 w-3" />;
+      default:
+        return <Eye className="h-3 w-3" />;
     }
   };
 
@@ -108,7 +127,7 @@ export default function TreesPage() {
         </Link>
       </motion.div>
 
-      {/* Content */}
+      {/* My Trees */}
       <div className="mt-8">
         <AnimatePresence mode="wait">
         {loading ? (
@@ -258,6 +277,109 @@ export default function TreesPage() {
         )}
         </AnimatePresence>
       </div>
+
+      {/* Shared With Me */}
+      {!sharedLoading && sharedTrees.length > 0 && (
+        <div className="mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+          >
+            <div className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-bold tracking-tight">
+                แชร์ให้ฉัน
+              </h2>
+              <Badge variant="secondary" className="text-xs">
+                {sharedTrees.length}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              สายรหัสที่คนอื่นแชร์มาให้คุณ
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            initial="hidden"
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.08 } } }}
+          >
+            {sharedTrees.map((tree) => (
+              <motion.div
+                key={tree.id}
+                variants={{
+                  hidden: { opacity: 0, y: 16 },
+                  visible: { opacity: 1, y: 0 },
+                }}
+                transition={{ duration: 0.35 }}
+              >
+                <Card className="group relative overflow-hidden border transition-all hover:-translate-y-0.5 hover:shadow-lg">
+                  {/* Blue accent for shared trees */}
+                  <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-blue-500 to-indigo-400" />
+
+                  <CardHeader className="pb-3 pt-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500/10 to-indigo-500/5">
+                          <Share2 className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-semibold">
+                            {tree.name}
+                          </CardTitle>
+                          {tree.faculty && (
+                            <CardDescription className="text-xs">
+                              {tree.faculty}
+                              {tree.department && ` · ${tree.department}`}
+                            </CardDescription>
+                          )}
+                        </div>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className="gap-1 text-[10px] font-medium"
+                      >
+                        {getRoleIcon(tree.myRole)}
+                        {roleToLabel(tree.myRole)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+
+                  {tree.description && (
+                    <CardContent className="pb-3">
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {tree.description}
+                      </p>
+                    </CardContent>
+                  )}
+
+                  <CardFooter className="pt-0">
+                    <div className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(tree.createdAt)}
+                      </span>
+                      <Link href={`/trees/${tree.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          เปิด
+                          <ArrowRight className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardFooter>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

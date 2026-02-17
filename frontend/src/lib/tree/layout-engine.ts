@@ -37,19 +37,34 @@ export interface LayoutEdge {
 
 export type LayoutDirection = "TB" | "LR";
 
-export const GENERATION_COLORS: Record<number, string> = {
-  1: "#3b82f6",
-  2: "#10b981",
-  3: "#f59e0b",
-  4: "#ef4444",
-  5: "#8b5cf6",
-  6: "#ec4899",
-  7: "#06b6d4",
-  8: "#f97316",
-};
+// สุ่มสีไม่ซ้ำแต่ละรุ่น ใช้ Golden Angle (≈137.5°) กระจาย hue ใน HSL
+// ให้สีทุกรุ่นห่างกันมากที่สุด ไม่มีวันซ้ำ
+const generationColorCache = new Map<number, string>();
+
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
 
 export function getGenerationColor(generation: number): string {
-  return GENERATION_COLORS[generation] || "#6b7280";
+  if (generation <= 0) return "#6b7280";
+
+  const cached = generationColorCache.get(generation);
+  if (cached) return cached;
+
+  const hue = (generation * 137.508) % 360;
+  const hex = hslToHex(hue, 65, 50);
+  generationColorCache.set(generation, hex);
+  return hex;
 }
 
 // ==================== หา Connected Component (รองรับ DAG) ====================

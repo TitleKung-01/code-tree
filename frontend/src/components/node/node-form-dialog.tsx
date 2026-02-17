@@ -12,15 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { TreeNodeData, getGenerationColor } from "@/lib/tree/layout-engine";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +40,9 @@ interface NodeFormDialogProps {
     firstName: string;
     lastName: string;
     studentId: string;
-    parentId: string | null;
+    parentIds: string[];
     status: string;
+    generation: number;
   }) => void;
   allNodes: TreeNodeData[];
   defaultParentId?: string | null;
@@ -96,8 +90,9 @@ export default function NodeFormDialog({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [parentId, setParentId] = useState<string>("none");
+  const [parentIds, setParentIds] = useState<string[]>([]);
   const [status, setStatus] = useState("studying");
+  const [generation, setGeneration] = useState(0);
 
   const isEdit = !!editNode;
 
@@ -109,8 +104,9 @@ export default function NodeFormDialog({
           setFirstName(editNode.firstName || "");
           setLastName(editNode.lastName || "");
           setStudentId(editNode.studentId || "");
-          setParentId(editNode.parentIds[0] || "none");
+          setParentIds(editNode.parentIds || []);
           setStatus(editNode.status || "studying");
+          setGeneration(editNode.generation || 0);
         }, 0);
       } else {
         setTimeout(() => {
@@ -118,12 +114,15 @@ export default function NodeFormDialog({
           setFirstName("");
           setLastName("");
           setStudentId("");
-          setParentId(defaultParentId || "none");
+          const initialParents = defaultParentId ? [defaultParentId] : [];
+          setParentIds(initialParents);
           setStatus("studying");
+          const defaultParent = allNodes.find((n) => n.id === defaultParentId);
+          setGeneration(defaultParent ? defaultParent.generation + 1 : 0);
         }, 0);
       }
     }
-  }, [open, editNode, defaultParentId]);
+  }, [open, editNode, defaultParentId, allNodes]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,16 +131,32 @@ export default function NodeFormDialog({
       firstName,
       lastName,
       studentId,
-      parentId: parentId === "none" ? null : parentId,
+      parentIds,
       status,
+      generation,
     });
   };
 
-  const selectedParent = allNodes.find((n) => n.id === parentId);
-  const estimatedGeneration = selectedParent
-    ? selectedParent.generation + 1
-    : 1;
-  const genColor = getGenerationColor(estimatedGeneration);
+  const selectedParents = allNodes.filter((n) => parentIds.includes(n.id));
+  const firstParent = selectedParents[0] ?? null;
+  const genColor = getGenerationColor(generation || 1);
+
+  // toggle parent: เพิ่ม/ลบ parent จาก list + คำนวณรุ่นอัตโนมัติจาก parent ตัวแรก
+  const handleToggleParent = (nodeId: string) => {
+    setParentIds((prev) => {
+      const next = prev.includes(nodeId)
+        ? prev.filter((id) => id !== nodeId)
+        : [...prev, nodeId];
+
+      if (!isEdit && next.length > 0) {
+        const first = allNodes.find((n) => n.id === next[0]);
+        if (first) setGeneration(first.generation + 1);
+      } else if (!isEdit && next.length === 0) {
+        setGeneration(0);
+      }
+      return next;
+    });
+  };
 
   const nodesByGeneration = useMemo(() => {
     const grouped = new Map<number, TreeNodeData[]>();
@@ -235,7 +250,7 @@ export default function NodeFormDialog({
                     style={{ backgroundColor: genColor }}
                   >
                     <Crown className="h-3 w-3" />
-                    รุ่นที่ {estimatedGeneration}
+                    รุ่นที่ {generation}
                   </Badge>
                 )}
               </div>
@@ -314,89 +329,129 @@ export default function NodeFormDialog({
                 ข้อมูลสายรหัส
               </legend>
 
-              {/* เลือกพี่รหัส — grouped by generation */}
+              {/* รุ่น */}
+              <div className="space-y-1.5">
+                <Label htmlFor="generation" className="text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Crown className="h-3 w-3 text-muted-foreground" />
+                    รุ่น <span className="text-red-500">*</span>
+                    {!isEdit && parentIds.length > 0 && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        (คำนวณจากพี่รหัสอัตโนมัติ)
+                      </span>
+                    )}
+                  </span>
+                </Label>
+                <Input
+                  id="generation"
+                  type="number"
+                  min={0}
+                  placeholder="เช่น 0, 1, 2"
+                  value={generation}
+                  onChange={(e) => setGeneration(parseInt(e.target.value) || 0)}
+                  readOnly={!isEdit && parentIds.length > 0}
+                  className={`transition-shadow focus-visible:ring-2 ${
+                    !isEdit && parentIds.length > 0 ? "bg-muted/50 text-muted-foreground" : ""
+                  }`}
+                />
+              </div>
+
+              {/* เลือกพี่รหัส — multi-select, grouped by generation */}
               {!isEdit && (
                 <div className="space-y-1.5">
-                  <Label className="text-sm">พี่รหัส</Label>
-                  <Select value={parentId} onValueChange={setParentId}>
-                    <SelectTrigger className="transition-shadow focus:ring-2">
-                      <SelectValue placeholder="เลือกพี่รหัส" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-64">
-                      <SelectItem value="none">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Crown className="h-3.5 w-3.5" />
-                          ไม่มีพี่ (Root Node)
-                        </div>
-                      </SelectItem>
+                  <Label className="text-sm">
+                    พี่รหัส
+                    {parentIds.length > 0 && (
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        (เลือก {parentIds.length} คน)
+                      </span>
+                    )}
+                  </Label>
 
+                  <ScrollArea className="max-h-48 rounded-lg border">
+                    <div className="p-1.5">
+                      {nodesByGeneration.length === 0 && (
+                        <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                          ยังไม่มีสมาชิกในต้นนี้
+                        </p>
+                      )}
                       {nodesByGeneration.map(([gen, nodes]) => (
-                        <SelectGroup key={gen}>
-                          <SelectLabel className="flex items-center gap-1.5 text-xs">
+                        <div key={gen} className="mb-1">
+                          <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             <span
                               className="inline-block h-2 w-2 rounded-full"
-                              style={{
-                                backgroundColor: getGenerationColor(gen),
-                              }}
+                              style={{ backgroundColor: getGenerationColor(gen) }}
                             />
                             รุ่นที่ {gen}
-                          </SelectLabel>
-                          {nodes.map((n) => (
-                            <SelectItem key={n.id} value={n.id}>
-                              <div className="flex items-center gap-2">
+                          </div>
+                          {nodes.map((n) => {
+                            const isChecked = parentIds.includes(n.id);
+                            return (
+                              <label
+                                key={n.id}
+                                className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 ${
+                                  isChecked ? "bg-muted/40" : ""
+                                }`}
+                              >
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={() => handleToggleParent(n.id)}
+                                />
                                 <Avatar className="h-5 w-5">
                                   <AvatarFallback
                                     className="text-[10px] font-semibold text-white"
                                     style={{
-                                      backgroundColor: getGenerationColor(
-                                        n.generation
-                                      ),
+                                      backgroundColor: getGenerationColor(n.generation),
                                     }}
                                   >
                                     {getInitials(n.nickname)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="font-medium">
-                                  {n.nickname}
-                                </span>
+                                <span className="text-sm font-medium">{n.nickname}</span>
                                 {n.studentId && (
                                   <span className="text-xs text-muted-foreground">
                                     {n.studentId}
                                   </span>
                                 )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
+                              </label>
+                            );
+                          })}
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  </ScrollArea>
 
-                  {/* Generation preview chip */}
-                  {parentId !== "none" && selectedParent && (
-                    <div className="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback
-                          className="text-[10px] font-semibold text-white"
-                          style={{
-                            backgroundColor: getGenerationColor(
-                              selectedParent.generation
-                            ),
-                          }}
+                  {/* Selected parents preview */}
+                  {selectedParents.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-dashed px-3 py-2">
+                      {selectedParents.map((p) => (
+                        <Badge
+                          key={p.id}
+                          variant="secondary"
+                          className="gap-1 text-xs"
                         >
-                          {getInitials(selectedParent.nickname)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{selectedParent.nickname}</span>
-                      <ChevronRight className="h-3 w-3" />
-                      <span className="font-semibold" style={{ color: genColor }}>
+                          <Avatar className="h-4 w-4">
+                            <AvatarFallback
+                              className="text-[8px] font-semibold text-white"
+                              style={{
+                                backgroundColor: getGenerationColor(p.generation),
+                              }}
+                            >
+                              {getInitials(p.nickname)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {p.nickname}
+                        </Badge>
+                      ))}
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-semibold" style={{ color: genColor }}>
                         {nickname.trim() || "สมาชิกใหม่"}
                       </span>
                       <Badge
                         className="ml-auto gap-1 text-white"
                         style={{ backgroundColor: genColor }}
                       >
-                        รุ่น {estimatedGeneration}
+                        รุ่น {generation}
                       </Badge>
                     </div>
                   )}

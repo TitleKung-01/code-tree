@@ -1,4 +1,4 @@
-.PHONY: dev dev-frontend dev-backend proto setup clean
+.PHONY: dev dev-frontend dev-backend proto setup clean db-start db-migrate db-setup db-reset db-types db-mock mock db-truncate db-drop-all db-link db-push db-types-remote
 
 # ==================== Development ====================
 
@@ -59,26 +59,58 @@ db-setup: db-start
 	@echo "🗄️ Setting up database..."
 	cd supabase && supabase db reset
 
-# Push migrations to remote Supabase project (requires: supabase link)
-db-push:
-	@echo "🗄️ Pushing migrations to remote..."
-	cd supabase && supabase db push
-
 # Reset local database (applies all migrations)
 db-reset: db-start
 	@echo "🗄️ Resetting local database..."
 	cd supabase && supabase db reset
 
-# Generate TypeScript types from remote Supabase schema
-db-types:
-	@echo "📝 Generating TypeScript types..."
-	cd frontend && npx supabase gen types typescript --project-id fvjalyzkzmsnycxolkcx > src/types/database.ts
+# Generate TypeScript types จาก local Supabase
+db-types: db-start
+	@echo "📝 Generating TypeScript types from local DB..."
+	cd supabase && supabase gen types typescript --local > ../frontend/src/types/database.ts
 	@echo "✅ Types generated at frontend/src/types/database.ts"
 
-# Link to remote Supabase project
+# ==================== Remote (Production) ====================
+
+# Link to remote Supabase project (ต้องรันก่อน push)
 db-link:
 	@echo "🔗 Linking to remote Supabase project..."
 	cd supabase && supabase link
+
+# Push migrations to remote Supabase (requires: make db-link)
+db-push:
+	@echo "🗄️ Pushing migrations to remote..."
+	cd supabase && supabase db push
+
+# Generate types จาก remote (requires: make db-link)
+db-types-remote:
+	@echo "📝 Generating TypeScript types from remote DB..."
+	cd supabase && supabase gen types typescript --linked > ../frontend/src/types/database.ts
+	@echo "✅ Types generated from remote"
+
+# Seed mock data (reset DB + apply seed.sql)
+db-mock: db-start
+	@echo "🎭 Seeding mock data..."
+	cd supabase && supabase db reset
+	@echo "✅ Mock data seeded!"
+	@echo "📧 Demo login: demo@codetree.dev / password123"
+
+# Alias: make mock = make db-mock
+mock: db-mock
+
+# ==================== Database Clean ====================
+
+# ลบข้อมูลทุก table (เฉพาะ data ไม่ลบ schema)
+db-truncate:
+	@echo "🗑️ Truncating all tables..."
+	cd supabase && supabase db reset
+	@echo "✅ All data cleared (migrations re-applied)"
+
+# ลบ table เดิมทั้งหมดแล้ว recreate (DROP + re-migrate)
+db-drop-all:
+	@echo "⚠️  Dropping all tables and re-applying migrations..."
+	cd supabase && supabase db reset --debug
+	@echo "✅ All tables dropped and re-created"
 
 # ==================== Clean ====================
 

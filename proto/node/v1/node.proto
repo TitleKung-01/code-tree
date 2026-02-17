@@ -36,13 +36,15 @@ message Node {
 
 message CreateNodeRequest {
   string tree_id = 1;
-  optional string parent_id = 2;
+  optional string parent_id = 2;  // backward compat: parent เดียว
   string nickname = 3;
   string first_name = 4;
   string last_name = 5;
   string student_id = 6;
   string photo_url = 7;
   NodeStatus status = 8;
+  int32 generation = 9;
+  repeated string parent_ids = 10;  // multi-parent: ถ้ามี จะใช้แทน parent_id
 }
 
 message CreateNodeResponse {
@@ -57,6 +59,7 @@ message UpdateNodeRequest {
   string student_id = 5;
   string photo_url = 6;
   NodeStatus status = 7;
+  int32 generation = 8;
 }
 
 message UpdateNodeResponse {
@@ -115,6 +118,15 @@ message RemoveParentResponse {
   Node node = 1;
 }
 
+// ★ Public: ดู nodes ผ่าน share token (ไม่ต้อง login)
+message GetNodesByShareTokenRequest {
+  string share_token = 1;
+}
+
+message GetNodesByShareTokenResponse {
+  repeated Node nodes = 1;
+}
+
 // ==================== Service ====================
 
 service NodeService {
@@ -124,7 +136,9 @@ service NodeService {
   rpc MoveNode(MoveNodeRequest) returns (MoveNodeResponse);
   rpc UnlinkNode(UnlinkNodeRequest) returns (UnlinkNodeResponse);
   rpc GetTreeNodes(GetTreeNodesRequest) returns (GetTreeNodesResponse);
-  // ★ NEW: multi-parent support
   rpc AddParent(AddParentRequest) returns (AddParentResponse);
   rpc RemoveParent(RemoveParentRequest) returns (RemoveParentResponse);
+
+  // ★ Public (ไม่ต้อง login)
+  rpc GetNodesByShareToken(GetNodesByShareTokenRequest) returns (GetNodesByShareTokenResponse);
 }

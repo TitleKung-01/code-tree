@@ -44,18 +44,36 @@ func NewAuthMiddleware(supabaseURL string, jwtSecret string) (*AuthMiddleware, e
 	}, nil
 }
 
-// Wrap protects an http.Handler with JWT authentication.
 func (m *AuthMiddleware) Wrap(next http.Handler) http.Handler {
+	return m.wrap(next, true)
+}
+
+
+func (m *AuthMiddleware) WrapOptional(next http.Handler) http.Handler {
+	return m.wrap(next, false)
+}
+
+func (m *AuthMiddleware) wrap(next http.Handler, required bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
+
+		// ไม่มี token → ถ้า required ก็ block, ถ้า optional ก็ผ่านไปเลย
 		if authHeader == "" {
-			http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+			if required {
+				http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
-			http.Error(w, `{"error":"invalid authorization format"}`, http.StatusUnauthorized)
+			if required {
+				http.Error(w, `{"error":"invalid authorization format"}`, http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
 			return
 		}
 

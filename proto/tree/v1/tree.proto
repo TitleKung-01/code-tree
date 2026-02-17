@@ -4,6 +4,15 @@ package tree.v1;
 
 option go_package = "github.com/TitleKung-01/code-tree-backend/gen/tree/v1;treev1";
 
+// ==================== Enums ====================
+
+enum ShareRole {
+  SHARE_ROLE_UNSPECIFIED = 0;
+  SHARE_ROLE_VIEWER = 1;
+  SHARE_ROLE_EDITOR = 2;
+  SHARE_ROLE_OWNER = 3;
+}
+
 // ==================== Messages ====================
 
 message Tree {
@@ -15,6 +24,19 @@ message Tree {
   string created_by = 6;
   string created_at = 7;
   string updated_at = 8;
+  ShareRole my_role = 9; // role ของ user ปัจจุบันกับ tree นี้
+}
+
+message TreeShare {
+  string id = 1;
+  string tree_id = 2;
+  string user_id = 3;
+  ShareRole role = 4;
+  string user_email = 5;
+  string user_display_name = 6;
+  string user_avatar_url = 7;
+  string invited_by = 8;
+  string created_at = 9;
 }
 
 // ==================== Requests & Responses ====================
@@ -50,6 +72,85 @@ message DeleteTreeRequest {
 
 message DeleteTreeResponse {}
 
+// ==================== Share Requests & Responses ====================
+
+// แชร์ tree ให้ user ด้วย email
+message ShareTreeRequest {
+  string tree_id = 1;
+  string email = 2;
+  ShareRole role = 3;
+}
+
+message ShareTreeResponse {
+  TreeShare share = 1;
+}
+
+// อัปเดต role ของ share
+message UpdateShareRequest {
+  string tree_id = 1;
+  string user_id = 2;
+  ShareRole role = 3;
+}
+
+message UpdateShareResponse {
+  TreeShare share = 1;
+}
+
+// ลบ share (เอาสิทธิ์ออก)
+message RemoveShareRequest {
+  string tree_id = 1;
+  string user_id = 2;
+}
+
+message RemoveShareResponse {}
+
+// ดูรายการคนที่ถูกแชร์ใน tree
+message ListTreeSharesRequest {
+  string tree_id = 1;
+}
+
+message ListTreeSharesResponse {
+  repeated TreeShare shares = 1;
+}
+
+// ดูรายการ tree ที่ถูกแชร์มาให้ฉัน
+message ListSharedWithMeRequest {}
+
+message ListSharedWithMeResponse {
+  repeated Tree trees = 1;
+}
+
+// ดู role ของ user ปัจจุบันกับ tree
+message GetMyRoleRequest {
+  string tree_id = 1;
+}
+
+message GetMyRoleResponse {
+  ShareRole role = 1;
+  bool is_creator = 2;
+}
+
+// ==================== Public Share Link ====================
+
+// สร้างลิงก์แชร์ (ต้อง login, เจ้าของเท่านั้น)
+message GenerateShareLinkRequest {
+  string tree_id = 1;
+}
+
+message GenerateShareLinkResponse {
+  string share_token = 1;
+  string share_url = 2;
+}
+
+// ดู tree ผ่าน share token (ไม่ต้อง login)
+message GetTreeByShareTokenRequest {
+  string share_token = 1;
+}
+
+message GetTreeByShareTokenResponse {
+  Tree tree = 1;
+}
+
 // ==================== Service ====================
 
 service TreeService {
@@ -57,4 +158,16 @@ service TreeService {
   rpc GetTree(GetTreeRequest) returns (GetTreeResponse);
   rpc ListMyTrees(ListMyTreesRequest) returns (ListMyTreesResponse);
   rpc DeleteTree(DeleteTreeRequest) returns (DeleteTreeResponse);
+
+  // ★ Sharing (ต้อง login)
+  rpc ShareTree(ShareTreeRequest) returns (ShareTreeResponse);
+  rpc UpdateShare(UpdateShareRequest) returns (UpdateShareResponse);
+  rpc RemoveShare(RemoveShareRequest) returns (RemoveShareResponse);
+  rpc ListTreeShares(ListTreeSharesRequest) returns (ListTreeSharesResponse);
+  rpc ListSharedWithMe(ListSharedWithMeRequest) returns (ListSharedWithMeResponse);
+  rpc GetMyRole(GetMyRoleRequest) returns (GetMyRoleResponse);
+
+  // ★ Public share link
+  rpc GenerateShareLink(GenerateShareLinkRequest) returns (GenerateShareLinkResponse);
+  rpc GetTreeByShareToken(GetTreeByShareTokenRequest) returns (GetTreeByShareTokenResponse);
 }

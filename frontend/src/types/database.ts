@@ -12,222 +12,40 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  public: {
+  graphql_public: {
     Tables: {
-      nodes: {
-        Row: {
-          created_at: string
-          first_name: string | null
-          generation: number
-          id: string
-          last_name: string | null
-          metadata: Json | null
-          nickname: string
-          parent_id: string | null
-          photo_url: string | null
-          position_x: number
-          position_y: number
-          sibling_order: number
-          status: Database["public"]["Enums"]["node_status"]
-          student_id: string | null
-          tree_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          first_name?: string | null
-          generation?: number
-          id?: string
-          last_name?: string | null
-          metadata?: Json | null
-          nickname: string
-          parent_id?: string | null
-          photo_url?: string | null
-          position_x?: number
-          position_y?: number
-          sibling_order?: number
-          status?: Database["public"]["Enums"]["node_status"]
-          student_id?: string | null
-          tree_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          first_name?: string | null
-          generation?: number
-          id?: string
-          last_name?: string | null
-          metadata?: Json | null
-          nickname?: string
-          parent_id?: string | null
-          photo_url?: string | null
-          position_x?: number
-          position_y?: number
-          sibling_order?: number
-          status?: Database["public"]["Enums"]["node_status"]
-          student_id?: string | null
-          tree_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "nodes_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "nodes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nodes_tree_id_fkey"
-            columns: ["tree_id"]
-            isOneToOne: false
-            referencedRelation: "trees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          department: string | null
-          display_name: string
-          faculty: string | null
-          id: string
-          university: string | null
-          updated_at: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          department?: string | null
-          display_name?: string
-          faculty?: string | null
-          id: string
-          university?: string | null
-          updated_at?: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          department?: string | null
-          display_name?: string
-          faculty?: string | null
-          id?: string
-          university?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      trees: {
-        Row: {
-          created_at: string
-          created_by: string
-          department: string | null
-          description: string | null
-          faculty: string | null
-          id: string
-          is_public: boolean
-          name: string
-          settings: Json
-          share_token: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          department?: string | null
-          description?: string | null
-          faculty?: string | null
-          id?: string
-          is_public?: boolean
-          name: string
-          settings?: Json
-          share_token?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          department?: string | null
-          description?: string | null
-          faculty?: string | null
-          id?: string
-          is_public?: boolean
-          name?: string
-          settings?: Json
-          share_token?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trees_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      get_ancestors: {
-        Args: { node_uuid: string }
-        Returns: {
-          created_at: string
-          first_name: string | null
-          generation: number
-          id: string
-          last_name: string | null
-          metadata: Json | null
-          nickname: string
-          parent_id: string | null
-          photo_url: string | null
-          position_x: number
-          position_y: number
-          sibling_order: number
-          status: Database["public"]["Enums"]["node_status"]
-          student_id: string | null
-          tree_id: string
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "nodes"
-          isOneToOne: false
-          isSetofReturn: true
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
         }
+        Returns: Json
       }
-      get_descendants: {
-        Args: { node_uuid: string }
-        Returns: {
-          created_at: string
-          first_name: string | null
-          generation: number
-          id: string
-          last_name: string | null
-          metadata: Json | null
-          nickname: string
-          parent_id: string | null
-          photo_url: string | null
-          position_x: number
-          position_y: number
-          sibling_order: number
-          status: Database["public"]["Enums"]["node_status"]
-          student_id: string | null
-          tree_id: string
-          updated_at: string
-        }[]
-        SetofOptions: {
-          from: "*"
-          to: "nodes"
-          isOneToOne: false
-          isSetofReturn: true
-        }
-      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
     }
     Enums: {
       node_status: "studying" | "graduated" | "retired"
@@ -356,6 +174,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       node_status: ["studying", "graduated", "retired"],

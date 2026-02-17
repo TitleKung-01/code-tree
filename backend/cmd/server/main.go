@@ -1,7 +1,6 @@
 package main
 
 import (
-    "context"
     "fmt"
     "log/slog"
     "net/http"
@@ -43,16 +42,11 @@ func main() {
     // ==================== Repositories ====================
     treeRepo := postgres.NewTreeRepo(db)
     nodeRepo := postgres.NewNodeRepo(db)
-
-    // ==================== Ensure node_parents table (multi-parent) ====================
-    if err := nodeRepo.EnsureNodeParentsTable(context.Background()); err != nil {
-        slog.Error("failed to ensure node_parents table", "error", err)
-        os.Exit(1)
-    }
+    shareRepo := postgres.NewShareRepo(db)
 
     // ==================== Services ====================
-    treeSvc := treeService.NewService(treeRepo)
-    nodeSvc := nodeService.NewService(nodeRepo, treeRepo)
+    treeSvc := treeService.NewService(treeRepo, shareRepo)
+    nodeSvc := nodeService.NewService(nodeRepo, treeRepo, shareRepo)
 
     // ==================== Auth Middleware ====================
     authMiddleware, err := middleware.NewAuthMiddleware(cfg.SupabaseURL, cfg.SupabaseJWTSecret)
@@ -70,13 +64,13 @@ func main() {
         fmt.Fprintf(w, `{"status":"ok","service":"code-tree-backend"}`)
     })
 
-    // gRPC Services (protected)
+    // gRPC Services
     treePath, treeHandler := treev1connect.NewTreeServiceHandler(treeSvc)
-    mux.Handle(treePath, authMiddleware.Wrap(treeHandler))
+    mux.Handle(treePath, authMiddleware.WrapOptional(treeHandler))
     slog.Info("registered service", "path", treePath)
 
     nodePath, nodeHandler := nodev1connect.NewNodeServiceHandler(nodeSvc)
-    mux.Handle(nodePath, authMiddleware.Wrap(nodeHandler))
+    mux.Handle(nodePath, authMiddleware.WrapOptional(nodeHandler))
     slog.Info("registered service", "path", nodePath)
 
     // ==================== CORS ====================

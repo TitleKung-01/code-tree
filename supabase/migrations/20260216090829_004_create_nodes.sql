@@ -1,7 +1,8 @@
 -- =============================================
 -- Nodes Table
 -- แต่ละ node คือ "คน" หนึ่งคนในสายรหัส
--- ต้องสร้างหลัง trees เพราะ REFERENCES public.trees(id)
+-- เก็บเฉพาะข้อมูลคน ไม่เก็บ hierarchy
+-- (hierarchy อยู่ใน trees.structure JSONB)
 -- =============================================
 
 -- Status enum
@@ -14,28 +15,26 @@ CREATE TYPE public.node_status AS ENUM (
 CREATE TABLE public.nodes (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tree_id        UUID NOT NULL REFERENCES public.trees(id) ON DELETE CASCADE,
-    parent_id      UUID REFERENCES public.nodes(id) ON DELETE SET NULL,
-    sibling_order  INT NOT NULL DEFAULT 0,
     nickname       TEXT NOT NULL,
     first_name     TEXT DEFAULT '',
     last_name      TEXT DEFAULT '',
-    student_id     TEXT DEFAULT '',
-    generation     INT NOT NULL DEFAULT 1,
+    student_id     TEXT DEFAULT NULL,
     photo_url      TEXT DEFAULT '',
     status         public.node_status NOT NULL DEFAULT 'studying',
     position_x     DOUBLE PRECISION NOT NULL DEFAULT 0,
     position_y     DOUBLE PRECISION NOT NULL DEFAULT 0,
     metadata       JSONB DEFAULT '{}'::jsonb,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_student_id_per_tree UNIQUE (tree_id, student_id)
+    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- เช็คซ้ำ student_id ต่อ tree (NULL ไม่ชนกัน — สร้างได้หลาย node ที่ไม่กรอกรหัส)
+CREATE UNIQUE INDEX unique_student_id_per_tree
+    ON public.nodes (tree_id, student_id)
+    WHERE student_id IS NOT NULL;
 
 -- Indexes
 CREATE INDEX idx_nodes_tree_id ON public.nodes(tree_id);
-CREATE INDEX idx_nodes_parent_id ON public.nodes(parent_id);
-CREATE INDEX idx_nodes_tree_parent ON public.nodes(tree_id, parent_id);
-CREATE INDEX idx_nodes_tree_generation ON public.nodes(tree_id, generation);
 
 -- Full-text search index
 CREATE INDEX idx_nodes_search ON public.nodes

@@ -13,6 +13,9 @@ CREATE TABLE public.trees (
     created_by   UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     share_token  TEXT UNIQUE DEFAULT NULL,
     is_public    BOOLEAN NOT NULL DEFAULT FALSE,
+    -- โครงสร้าง parent-child ทั้ง tree เก็บเป็น JSONB
+    -- format: { "rootIds": ["uuid"], "edges": { "uuid": { "children": ["uuid"], "order": 0 } } }
+    structure    JSONB NOT NULL DEFAULT '{"rootIds":[],"edges":{}}'::jsonb,
     settings     JSONB NOT NULL DEFAULT '{
         "layout_direction": "vertical",
         "theme": "default",
