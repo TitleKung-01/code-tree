@@ -14,9 +14,7 @@ tmp/
 .env.local
 .env.*.local
 
-# Generated code
-frontend/src/gen/
-backend/gen/
+# Generated code (committed for deployment - run `make proto` to regenerate)
 
 # IDE
 .idea/
