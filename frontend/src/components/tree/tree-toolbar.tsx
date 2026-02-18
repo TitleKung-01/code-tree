@@ -68,7 +68,7 @@ export default function TreeToolbar({
 
   const getRoleBadge = () => {
     if (isCreator) return null;
-    if (!myRole || myRole === ShareRole.UNSPECIFIED) return null;
+    if (!myRole) return null;
 
     const config = {
       [ShareRole.VIEWER]: {

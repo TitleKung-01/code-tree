@@ -27,6 +27,11 @@ function protoToTreeNode(n: Node): TreeNodeData {
     photoUrl: n.photoUrl || "",
     status: mapProtoStatus(n.status),
     siblingOrder: n.siblingOrder || 0,
+    phone: n.phone || "",
+    email: n.email || "",
+    lineId: n.lineId || "",
+    discord: n.discord || "",
+    facebook: n.facebook || "",
   };
 }
 
@@ -105,6 +110,11 @@ export function useCreateNode() {
     photoUrl?: string;
     status?: string;
     generation?: number;
+    phone?: string;
+    email?: string;
+    lineId?: string;
+    discord?: string;
+    facebook?: string;
   }): Promise<TreeNodeData | null> => {
     try {
       setLoading(true);
@@ -120,6 +130,11 @@ export function useCreateNode() {
         photoUrl: data.photoUrl || "",
         status: mapStatusToProto(data.status || "studying"),
         generation: data.generation ?? 0,
+        phone: data.phone || "",
+        email: data.email || "",
+        lineId: data.lineId || "",
+        discord: data.discord || "",
+        facebook: data.facebook || "",
       });
 
       toast.success(`เพิ่ม "${data.nickname}" สำเร็จ!`);
@@ -155,6 +170,11 @@ export function useUpdateNode() {
     photoUrl?: string;
     status?: string;
     generation?: number;
+    phone?: string;
+    email?: string;
+    lineId?: string;
+    discord?: string;
+    facebook?: string;
   }): Promise<boolean> => {
     try {
       setLoading(true);
@@ -168,6 +188,11 @@ export function useUpdateNode() {
         photoUrl: data.photoUrl || "",
         status: mapStatusToProto(data.status || "studying"),
         generation: data.generation ?? 0,
+        phone: data.phone || "",
+        email: data.email || "",
+        lineId: data.lineId || "",
+        discord: data.discord || "",
+        facebook: data.facebook || "",
       });
 
       toast.success("แก้ไขข้อมูลสำเร็จ!");

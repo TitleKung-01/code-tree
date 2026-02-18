@@ -30,6 +30,13 @@ message Node {
   string created_at = 14;
   string updated_at = 15;
   repeated string parent_ids = 16;  // รองรับ multi-parent (DAG)
+
+  // ช่องทางติดต่อ
+  string phone = 17;
+  string email = 18;
+  string line_id = 19;
+  string discord = 20;
+  string facebook = 21;
 }
 
 // ==================== Requests & Responses ====================
@@ -45,6 +52,13 @@ message CreateNodeRequest {
   NodeStatus status = 8;
   int32 generation = 9;
   repeated string parent_ids = 10;  // multi-parent: ถ้ามี จะใช้แทน parent_id
+
+  // ช่องทางติดต่อ
+  string phone = 11;
+  string email = 12;
+  string line_id = 13;
+  string discord = 14;
+  string facebook = 15;
 }
 
 message CreateNodeResponse {
@@ -60,6 +74,13 @@ message UpdateNodeRequest {
   string photo_url = 6;
   NodeStatus status = 7;
   int32 generation = 8;
+
+  // ช่องทางติดต่อ
+  string phone = 9;
+  string email = 10;
+  string line_id = 11;
+  string discord = 12;
+  string facebook = 13;
 }
 
 message UpdateNodeResponse {

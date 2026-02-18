@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -24,18 +25,24 @@ var _ node.Repository = (*NodeRepo)(nil)
 // ==================== Create ====================
 
 func (r *NodeRepo) Create(ctx context.Context, n *node.Node) error {
+	metaJSON, err := json.Marshal(n.Metadata)
+	if err != nil {
+		metaJSON = []byte("{}")
+	}
+
 	query := `
 		INSERT INTO nodes (
 			tree_id,
 			nickname, first_name, last_name, student_id,
 			photo_url, status, generation,
-			position_x, position_y
+			position_x, position_y,
+			metadata
 		)
-		VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7, $8, $9, $10, $11)
 		RETURNING id, created_at, updated_at
 	`
 
-	err := r.db.Pool.QueryRow(ctx, query,
+	err = r.db.Pool.QueryRow(ctx, query,
 		n.TreeID,
 		n.Nickname,
 		n.FirstName,
@@ -46,6 +53,7 @@ func (r *NodeRepo) Create(ctx context.Context, n *node.Node) error {
 		n.Generation,
 		n.PositionX,
 		n.PositionY,
+		metaJSON,
 	).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt)
 
 	if err != nil {
@@ -65,12 +73,14 @@ func (r *NodeRepo) FindByID(ctx context.Context, id string) (*node.Node, error) 
 		       nickname, first_name, last_name, COALESCE(student_id, ''),
 		       photo_url, status, generation,
 		       position_x, position_y,
+		       COALESCE(metadata, '{}'::jsonb),
 		       created_at, updated_at
 		FROM nodes
 		WHERE id = $1
 	`
 
 	n := &node.Node{}
+	var metaJSON []byte
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&n.ID,
 		&n.TreeID,
@@ -83,6 +93,7 @@ func (r *NodeRepo) FindByID(ctx context.Context, id string) (*node.Node, error) 
 		&n.Generation,
 		&n.PositionX,
 		&n.PositionY,
+		&metaJSON,
 		&n.CreatedAt,
 		&n.UpdatedAt,
 	)
@@ -94,12 +105,20 @@ func (r *NodeRepo) FindByID(ctx context.Context, id string) (*node.Node, error) 
 		return nil, fmt.Errorf("failed to find node: %w", err)
 	}
 
+	n.Metadata = make(map[string]string)
+	_ = json.Unmarshal(metaJSON, &n.Metadata)
+
 	return n, nil
 }
 
 // ==================== Update ====================
 
 func (r *NodeRepo) Update(ctx context.Context, n *node.Node) error {
+	metaJSON, err := json.Marshal(n.Metadata)
+	if err != nil {
+		metaJSON = []byte("{}")
+	}
+
 	query := `
 		UPDATE nodes SET
 			nickname = $2,
@@ -108,12 +127,13 @@ func (r *NodeRepo) Update(ctx context.Context, n *node.Node) error {
 			student_id = NULLIF($5, ''),
 			photo_url = $6,
 			status = $7,
-			generation = $8
+			generation = $8,
+			metadata = $9
 		WHERE id = $1
 		RETURNING updated_at
 	`
 
-	err := r.db.Pool.QueryRow(ctx, query,
+	err = r.db.Pool.QueryRow(ctx, query,
 		n.ID,
 		n.Nickname,
 		n.FirstName,
@@ -122,6 +142,7 @@ func (r *NodeRepo) Update(ctx context.Context, n *node.Node) error {
 		n.PhotoURL,
 		n.Status,
 		n.Generation,
+		metaJSON,
 	).Scan(&n.UpdatedAt)
 
 	if err != nil {
@@ -174,6 +195,7 @@ func (r *NodeRepo) FindByTreeID(ctx context.Context, treeID string) ([]*node.Nod
 		       nickname, first_name, last_name, COALESCE(student_id, ''),
 		       photo_url, status, generation,
 		       position_x, position_y,
+		       COALESCE(metadata, '{}'::jsonb),
 		       created_at, updated_at
 		FROM nodes
 		WHERE tree_id = $1
@@ -189,6 +211,7 @@ func (r *NodeRepo) FindByTreeID(ctx context.Context, treeID string) ([]*node.Nod
 	var nodes []*node.Node
 	for rows.Next() {
 		n := &node.Node{}
+		var metaJSON []byte
 		err := rows.Scan(
 			&n.ID,
 			&n.TreeID,
@@ -201,12 +224,15 @@ func (r *NodeRepo) FindByTreeID(ctx context.Context, treeID string) ([]*node.Nod
 			&n.Generation,
 			&n.PositionX,
 			&n.PositionY,
+			&metaJSON,
 			&n.CreatedAt,
 			&n.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan node: %w", err)
 		}
+		n.Metadata = make(map[string]string)
+		_ = json.Unmarshal(metaJSON, &n.Metadata)
 		nodes = append(nodes, n)
 	}
 

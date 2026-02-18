@@ -60,6 +60,11 @@ function protoToTreeNode(n: Node): TreeNodeData {
     photoUrl: n.photoUrl || "",
     status: mapProtoStatus(n.status),
     siblingOrder: n.siblingOrder || 0,
+    phone: n.phone || "",
+    email: n.email || "",
+    lineId: n.lineId || "",
+    discord: n.discord || "",
+    facebook: n.facebook || "",
   };
 }
 

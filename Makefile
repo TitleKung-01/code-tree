@@ -1,4 +1,4 @@
-.PHONY: dev dev-frontend dev-backend proto setup clean db-start db-migrate db-setup db-reset db-types db-mock mock db-truncate db-drop-all db-link db-push db-types-remote
+.PHONY: dev dev-frontend dev-backend proto setup clean db-start db-migrate db-setup db-reset db-types db-mock mock db-truncate db-drop-all db-link db-push db-types-remote deploy-build-backend deploy-db
 
 # ==================== Development ====================
 
@@ -111,6 +111,20 @@ db-drop-all:
 	@echo "⚠️  Dropping all tables and re-applying migrations..."
 	cd supabase && supabase db reset --debug
 	@echo "✅ All tables dropped and re-created"
+
+# ==================== Deploy ====================
+
+# Build production backend Docker image locally (for testing)
+deploy-build-backend:
+	@echo "🐳 Building production backend image..."
+	docker build -f deploy/docker/Dockerfile.backend.prod -t code-tree-backend:latest ./backend
+	@echo "✅ Backend image built!"
+
+# Push migrations to remote Supabase
+deploy-db:
+	@echo "🗄️ Pushing migrations to remote Supabase..."
+	cd supabase && supabase db push
+	@echo "✅ Database migrations pushed!"
 
 # ==================== Clean ====================
 

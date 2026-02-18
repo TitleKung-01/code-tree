@@ -106,6 +106,7 @@ func (s *Service) CreateNode(
 		Status:     status,
 		Generation: generation,
 	}
+	n.SetContact(req.Msg.Phone, req.Msg.Email, req.Msg.LineId, req.Msg.Discord, req.Msg.Facebook)
 
 	if err := s.nodeRepo.Create(ctx, n); err != nil {
 		slog.Error("failed to create node", "error", err)
@@ -185,6 +186,7 @@ func (s *Service) UpdateNode(
 	existing.PhotoURL = req.Msg.PhotoUrl
 	existing.Status = protoStatusToDomain(req.Msg.Status)
 	existing.Generation = req.Msg.Generation
+	existing.SetContact(req.Msg.Phone, req.Msg.Email, req.Msg.LineId, req.Msg.Discord, req.Msg.Facebook)
 
 	if err := s.nodeRepo.Update(ctx, existing); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -591,6 +593,11 @@ func domainToProto(n *node.Node, structure *tree.TreeStructure) *nodev1.Node {
 		Generation: n.Generation,
 		PositionX:  n.PositionX,
 		PositionY:  n.PositionY,
+		Phone:      n.Phone(),
+		Email:      n.Email(),
+		LineId:     n.LineID(),
+		Discord:    n.Discord(),
+		Facebook:   n.Facebook(),
 		CreatedAt:  n.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:  n.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}

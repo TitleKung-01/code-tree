@@ -11,6 +11,7 @@ import DeleteNodeDialog from "@/components/node/delete-confirm-dialog";
 import UnlinkNodeDialog from "@/components/node/unlink-node-dialog";
 import TreeSearch from "@/components/tree/tree-search";
 import TreeEditorInner from "@/components/tree/tree-editor-inner";
+import NodeDetailPanel from "@/components/node/node-detail-panel";
 import ShareDialog from "@/components/tree/share-dialog";
 import { TreeNodeData } from "@/lib/tree/layout-engine";
 import { validateAddParent } from "@/lib/tree/validator";
@@ -156,6 +157,12 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
       parentIds: string[];
       status: string;
       generation: number;
+      photoUrl: string;
+      phone: string;
+      email: string;
+      lineId: string;
+      discord: string;
+      facebook: string;
     }) => {
       const result = await createNode({ treeId, ...data });
       if (result) {
@@ -182,6 +189,12 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
       parentIds: string[];
       status: string;
       generation: number;
+      photoUrl: string;
+      phone: string;
+      email: string;
+      lineId: string;
+      discord: string;
+      facebook: string;
     }) => {
       if (!editNode) return;
 
@@ -191,8 +204,14 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
         firstName: data.firstName,
         lastName: data.lastName,
         studentId: data.studentId,
+        photoUrl: data.photoUrl,
         status: data.status,
         generation: data.generation,
+        phone: data.phone,
+        email: data.email,
+        lineId: data.lineId,
+        discord: data.discord,
+        facebook: data.facebook,
       });
 
       if (success) {
@@ -476,16 +495,28 @@ function TreeEditorContent({ treeId }: { treeId: string }) {
             </div>
           </>
         ) : (
-          <TreeTableView
-            nodes={treeNodes}
-            allNodes={treeNodes}
-            onNodeClick={handleNodeClick}
-            onEdit={handleEditNode}
-            onDelete={handleDeleteNode}
-            onAddChild={handleAddChild}
-            onImportCsv={handleImportCsv}
-            importing={csvImporting}
-          />
+          <>
+            <TreeTableView
+              nodes={treeNodes}
+              allNodes={treeNodes}
+              onNodeClick={handleNodeClick}
+              onEdit={userCanEdit ? handleEditNode : undefined}
+              onDelete={userCanEdit ? handleDeleteNode : undefined}
+              onAddChild={userCanEdit ? handleAddChild : undefined}
+              onImportCsv={handleImportCsv}
+              importing={csvImporting}
+            />
+            <NodeDetailPanel
+              node={selectedNode}
+              allNodes={treeNodes}
+              open={isPanelOpen}
+              onClose={handleClosePanel}
+              onEdit={userCanEdit ? handleEditNode : undefined}
+              onDelete={userCanEdit ? handleDeleteNode : undefined}
+              onAddChild={userCanEdit ? handleAddChild : undefined}
+              onNodeSelect={setSelectedNode}
+            />
+          </>
         )}
       </div>
 

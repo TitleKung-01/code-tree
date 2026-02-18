@@ -11,6 +11,11 @@ export interface TreeNodeData {
   photoUrl: string;
   status: "studying" | "graduated" | "retired";
   siblingOrder: number;
+  phone: string;
+  email: string;
+  lineId: string;
+  discord: string;
+  facebook: string;
   onAddChild?: (node: TreeNodeData) => void;
   onEdit?: (node: TreeNodeData) => void;
   onDelete?: (node: TreeNodeData) => void;

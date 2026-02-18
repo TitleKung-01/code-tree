@@ -28,6 +28,7 @@ import {
   CircleDot,
   GraduationCap,
   UserCheck,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -152,6 +153,11 @@ function TreeNodeComponent({ data, selected, dragging }: TreeNodeComponentProps)
             {getStatusIconSmall(data.status)}
             {getStatusLabel(data.status)}
           </Badge>
+          {(data.phone || data.email || data.lineId) && (
+            <Badge variant="outline" className="h-5 gap-0.5 text-[10px] text-blue-600 border-blue-200 dark:text-blue-400 dark:border-blue-800">
+              <Phone className="h-2.5 w-2.5" />
+            </Badge>
+          )}
         </div>
       </div>
     </div>

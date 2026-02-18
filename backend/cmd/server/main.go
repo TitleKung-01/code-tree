@@ -74,8 +74,9 @@ func main() {
     slog.Info("registered service", "path", nodePath)
 
     // ==================== CORS ====================
+    slog.Info("CORS allowed origins", "origins", cfg.AllowedOrigins)
     corsHandler := cors.New(cors.Options{
-        AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001"},
+        AllowedOrigins:   cfg.AllowedOrigins,
         AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
         AllowedHeaders:   []string{"*"},
         AllowCredentials: true,
