@@ -6,6 +6,7 @@ import (
     "log/slog"
     "time"
 
+    "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,11 +24,13 @@ func NewDB(databaseURL string) (*DB, error) {
         return nil, fmt.Errorf("failed to parse database URL: %w", err)
     }
 
-    // Connection pool settings
     config.MaxConns = 10
     config.MinConns = 2
     config.MaxConnLifetime = 30 * time.Minute
     config.MaxConnIdleTime = 5 * time.Minute
+
+    // Required for Supabase Transaction Pooler (Supavisor) which doesn't support prepared statements
+    config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
     // Connect
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
