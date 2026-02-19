@@ -60,10 +60,9 @@ export default function RegisterPage() {
       return;
     }
 
-    toast.success("สมัครสมาชิกสำเร็จ!", {
-      description: "กรุณายืนยันอีเมลของคุณ",
-    });
-    router.push("/login");
+    toast.success("สมัครสมาชิกสำเร็จ!");
+    router.push("/trees");
+    router.refresh();
   };
 
   return (

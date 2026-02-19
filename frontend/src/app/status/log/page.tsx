@@ -155,7 +155,7 @@ export default function HealthLogPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Real-time health check monitoring &mdash;{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
-              {backendUrl}/health
+              {backendUrl}health
             </code>
           </p>
         </div>
