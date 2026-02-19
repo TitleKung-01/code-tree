@@ -22,15 +22,16 @@ func Load() *Config {
         slog.Info("no .env file found, using environment variables")
     }
 
-    origins := []string{"http://localhost:3000", "http://localhost:3001"}
-    if extra := os.Getenv("ALLOWED_ORIGINS"); extra != "" {
-        for _, o := range strings.Split(extra, ",") {
-            o = strings.TrimSpace(o)
-            if o != "" {
-                origins = append(origins, o)
-            }
-        }
-    }
+	origins := []string{"http://localhost:3000", "http://localhost:3001"}
+	if extra := os.Getenv("ALLOWED_ORIGINS"); extra != "" {
+		for _, o := range strings.Split(extra, ",") {
+			o = strings.TrimSpace(o)
+			o = strings.TrimRight(o, "/")
+			if o != "" {
+				origins = append(origins, o)
+			}
+		}
+	}
 
     return &Config{
         Port:              getEnv("PORT", "8080"),

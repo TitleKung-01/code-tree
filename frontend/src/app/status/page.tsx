@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, CheckCircle2, XCircle, RefreshCw, Globe, Database, Shield } from "lucide-react";
+import { Activity, CheckCircle2, XCircle, RefreshCw, Globe, Database, Shield, ScrollText } from "lucide-react";
+import Link from "next/link";
 
 type ServiceStatus = "loading" | "ok" | "error";
 
@@ -103,14 +104,23 @@ export default function StatusPage() {
             ? `Last checked: ${lastChecked.toLocaleTimeString("th-TH")}`
             : "Checking..."}
         </span>
-        <button
-          onClick={checkHealth}
-          disabled={checking}
-          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors hover:bg-accent disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/status/log"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors hover:bg-accent"
+          >
+            <ScrollText className="h-3 w-3" />
+            Health Log
+          </Link>
+          <button
+            onClick={checkHealth}
+            disabled={checking}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 transition-colors hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3 w-3 ${checking ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </div>
     </div>
   );

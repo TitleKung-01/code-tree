@@ -78,8 +78,8 @@ make deploy-db
 
 ### หลัง Deploy
 
-- จด Backend URL: `https://code-tree-backend.onrender.com`
-- ทดสอบ: `curl https://code-tree-backend.onrender.com/health`
+- จด Backend URL: `https://code-tree.onrender.com`
+- ทดสอบ: `curl https://code-tree.onrender.com/health`
 - ควรได้: `{"status":"ok","service":"code-tree-backend"}`
 
 ---
