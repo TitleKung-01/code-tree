@@ -60,6 +60,16 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
+          <Link href="/blog">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Blog
+            </Button>
+          </Link>
+
           {loading ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
           ) : isAuthenticated ? (
