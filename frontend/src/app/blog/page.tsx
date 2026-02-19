@@ -25,6 +25,7 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  
   {
     date: "2026-02-19",
     version: "v1.4.0",
