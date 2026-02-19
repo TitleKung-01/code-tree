@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, TreePine, User, ChevronDown } from "lucide-react";
+import { LogOut, TreePine, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -118,13 +118,6 @@ export function Navbar() {
                       </p>
                     </div>
                   </div>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    โปรไฟล์
-                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
 
