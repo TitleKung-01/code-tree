@@ -53,7 +53,7 @@ func (r *NodeRepo) Create(ctx context.Context, n *node.Node) error {
 		n.Generation,
 		n.PositionX,
 		n.PositionY,
-		metaJSON,
+		string(metaJSON),
 	).Scan(&n.ID, &n.CreatedAt, &n.UpdatedAt)
 
 	if err != nil {
@@ -142,7 +142,7 @@ func (r *NodeRepo) Update(ctx context.Context, n *node.Node) error {
 		n.PhotoURL,
 		n.Status,
 		n.Generation,
-		metaJSON,
+		string(metaJSON),
 	).Scan(&n.UpdatedAt)
 
 	if err != nil {

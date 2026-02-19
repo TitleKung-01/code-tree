@@ -24,7 +24,15 @@ import {
   Eye,
   Pencil,
   Crown,
+  MoreVertical,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useReactFlow } from "@xyflow/react";
 import type { LayoutDirection } from "@/lib/tree/layout-engine";
@@ -108,17 +116,17 @@ export default function TreeToolbar({
   return (
     <TooltipProvider delayDuration={300}>
       <motion.div
-        className="grid h-12 grid-cols-3 items-center border-b bg-background/80 px-3 backdrop-blur-md"
+        className="flex h-12 items-center justify-between border-b bg-background/80 px-3 backdrop-blur-md md:grid md:grid-cols-3"
         initial={{ y: -12, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
       >
         {/* Left */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/trees">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
@@ -128,7 +136,7 @@ export default function TreeToolbar({
 
           <Separator orientation="vertical" className="h-5" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm font-semibold">{treeName}</h1>
             <Badge variant="secondary" className="shrink-0 gap-1 text-[10px] font-medium">
               <Users className="h-2.5 w-2.5" />
@@ -138,8 +146,86 @@ export default function TreeToolbar({
           </div>
         </div>
 
-        {/* Center — actions */}
-        <div className="flex justify-center">
+        {/* Mobile dropdown */}
+        <div className="flex items-center gap-1 md:hidden">
+          {canEdit && onAddNode && (
+            <Button
+              size="sm"
+              onClick={onAddNode}
+              className="h-8 gap-1.5 rounded-md bg-linear-to-r from-green-600 to-emerald-500 px-2.5 text-xs shadow-sm"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={onSearch}>
+                <Search className="h-4 w-4" />
+                ค้นหา
+              </DropdownMenuItem>
+
+              {viewMode === "graph" && (
+                <>
+                  <DropdownMenuItem onClick={onAutoLayout}>
+                    <LayoutGrid className="h-4 w-4" />
+                    จัดเรียงอัตโนมัติ
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={onToggleDirection}>
+                    {direction === "TB" ? (
+                      <ArrowLeftRight className="h-4 w-4" />
+                    ) : (
+                      <ArrowDownUp className="h-4 w-4" />
+                    )}
+                    {direction === "TB"
+                      ? "เปลี่ยนเป็นแนวนอน"
+                      : "เปลี่ยนเป็นแนวตั้ง"}
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={handleFitView}>
+                    <Maximize className="h-4 w-4" />
+                    พอดีจอ
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+
+              {onShare && (
+                <DropdownMenuItem onClick={onShare}>
+                  <Share2 className="h-4 w-4" />
+                  แชร์สายรหัส
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem onClick={() => onViewModeChange?.("graph")}>
+                <GitBranch className="h-4 w-4" />
+                มุมมองกราฟ
+                {viewMode === "graph" && (
+                  <span className="ml-auto text-xs text-green-500">●</span>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onViewModeChange?.("table")}>
+                <Table2 className="h-4 w-4" />
+                มุมมองตาราง
+                {viewMode === "table" && (
+                  <span className="ml-auto text-xs text-green-500">●</span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Center — actions (desktop) */}
+        <div className="hidden justify-center md:flex">
           <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
             {canEdit && onAddNode && (
               <>
@@ -151,7 +237,7 @@ export default function TreeToolbar({
                       className="h-7 gap-1.5 rounded-md bg-linear-to-r from-green-600 to-emerald-500 px-3 text-xs shadow-sm"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">เพิ่มคน</span>
+                      <span>เพิ่มคน</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>เพิ่มคนใหม่</TooltipContent>
@@ -233,8 +319,8 @@ export default function TreeToolbar({
           </div>
         </div>
 
-        {/* Right — share + view mode toggle */}
-        <div className="flex items-center justify-end gap-2">
+        {/* Right — share + view mode toggle (desktop) */}
+        <div className="hidden items-center justify-end gap-2 md:flex">
           {onShare && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -245,7 +331,7 @@ export default function TreeToolbar({
                   onClick={onShare}
                 >
                   <Share2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">แชร์</span>
+                  <span>แชร์</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>แชร์สายรหัส</TooltipContent>
